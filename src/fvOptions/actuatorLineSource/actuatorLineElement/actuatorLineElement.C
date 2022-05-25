@@ -729,8 +729,8 @@ void Foam::fv::actuatorLineElement::calculateForce
     inflowVelocity_ -= spanwiseVelocity;
 
     // Calculate relative velocity and Reynolds number
-    relativeVelocity_ = inflowVelocity_ - velocity_;
-    Re_ = mag(relativeVelocity_)*chordLength_/nu_;
+    relativeVelocity_ = inflowVelocity_ - velocity_ + SMALL*vector::one; //Add SMALL to avoid zero velocity, could lead to division by zero
+    Re_ = 1.51 + mag(relativeVelocity_)*chordLength_/nu_; // Add 1.51 to Re_ so that profileData.C line 659 gives real result
 
     // Calculate angle of attack (radians)
     scalar angleOfAttackRad = asin((planformNormal_ & relativeVelocity_)
