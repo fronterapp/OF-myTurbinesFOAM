@@ -78,6 +78,14 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         reducedFreq_ = pitchDict.lookupOrDefault("reducedFreq", 0.0);
         pitchAmplitude_ = pitchDict.lookupOrDefault("amplitude", 0.0);
 
+        // Read harmonic pitching parameters if present
+        dictionary surgeDict = coeffs_.subOrEmptyDict("harmonicSurge");
+        harmonicSurgeActive_ = surgeDict.lookupOrDefault("active", false);
+        surgeFreq_ = surgeDict.lookupOrDefault("frequency", 0.0);
+        surgeFreq_*= 2*M_PI; // Transform Hz into rad/s
+        surgeAmplitude_ = surgeDict.lookupOrDefault("amplitude", 0.0);
+
+
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
         (
@@ -126,7 +134,7 @@ void Foam::fv::actuatorLineSource::createOutputFile()
 
     outputFile_ = new OFstream(dir/name_ + ".csv");
 
-    *outputFile_<< "time,x,y,z,rel_vel_mag,alpha_deg,alpha_geom_deg,cl,cd,cm"
+    *outputFile_<< "time,x,y,z,rel_vel_mag,body_vel_mag,alpha_deg,alpha_geom_deg,cl,cd,cm"
                 << endl;
 }
 
@@ -377,6 +385,7 @@ void Foam::fv::actuatorLineSource::writePerf()
     scalar y = 0.0;
     scalar z = 0.0;
     scalar relVelMag = 0.0;
+    scalar bodyVelMag = 0.0;
     scalar alphaDeg = 0.0;
     scalar alphaGeom = 0.0;
     scalar cl = 0.0;
@@ -390,6 +399,7 @@ void Foam::fv::actuatorLineSource::writePerf()
         vector pos = elements_[i].position();
         x += pos[0]; y += pos[1]; z += pos[2];
         relVelMag += mag(elements_[i].relativeVelocity())*area;
+        bodyVelMag += mag(elements_[i].bodyVelocity())*area;
         alphaDeg += elements_[i].angleOfAttack()*area;
         alphaGeom += elements_[i].angleOfAttackGeom()*area;
         cl += elements_[i].liftCoefficient()*area;
@@ -399,14 +409,15 @@ void Foam::fv::actuatorLineSource::writePerf()
 
     x /= nElements_; y /= nElements_; z /= nElements_;
     relVelMag /= totalArea;
+    bodyVelMag /= totalArea;
     alphaDeg /= totalArea;
     alphaGeom /= totalArea;
     cl /= totalArea; cd /= totalArea; cm /= totalArea;
 
-    // write time,x,y,z,rel_vel_mag,alpha_deg,alpha_geom_deg,cl,cd,cm
+    // write time,x,y,z,rel_vel_mag,body_vel_mag,alpha_deg,alpha_geom_deg,cl,cd,cm
     *outputFile_<< time << "," << x << "," << y << "," << z << "," << relVelMag
-                << "," << alphaDeg << "," << alphaGeom << "," << cl << ","
-                << cd << "," << cm << endl;
+                << "," << bodyVelMag << ","  << alphaDeg << "," << alphaGeom 
+                << "," << cl << "," << cd << "," << cm << endl;
 }
 
 
@@ -497,6 +508,20 @@ void Foam::fv::actuatorLineSource::harmonicPitching()
     }
 }
 
+void Foam::fv::actuatorLineSource::harmonicSurge()
+{
+    // Move the actuator line in surge if time has changed
+    scalar t = mesh_.time().value();
+    if (t != lastMotionTime_)
+    {
+        scalar dt = mesh_.time().deltaT().value();
+        scalar deltaPos = surgeAmplitude_*(sin(surgeFreq_*t)
+                          - sin(surgeFreq_*(t - dt))); // Current - Previous surge
+        scalar surgeVel = surgeAmplitude_*surgeFreq_*cos(surgeFreq_*t);
+        surge(deltaPos, surgeVel);
+        lastMotionTime_ = t;
+    }
+}
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -591,6 +616,14 @@ void Foam::fv::actuatorLineSource::pitch(scalar radians)
     }
 }
 
+void Foam::fv::actuatorLineSource::surge(scalar distance, scalar velocity)
+{
+    vector translationVector = vector(distance, 0.0, 0.0);
+    vector velocityVector = vector(velocity, 0.0, 0.0);
+    translate(translationVector);
+    setBodyVelocity(velocityVector);
+}
+
 
 void Foam::fv::actuatorLineSource::pitch(scalar radians, scalar chordFraction)
 {
@@ -632,6 +665,13 @@ void Foam::fv::actuatorLineSource::scaleVelocity(scalar scale)
     }
 }
 
+void Foam::fv::actuatorLineSource::setBodyVelocity(vector velocityVector)
+{
+    forAll(elements_, i)
+    {
+        elements_[i].setBodyVelocity(velocityVector);
+    }
+}
 
 void Foam::fv::actuatorLineSource::setOmega(scalar omega)
 {
@@ -678,7 +718,7 @@ Foam::vector Foam::fv::actuatorLineSource::moment(vector point)
 }
 
 
-void Foam::fv::actuatorLineSource::addSup
+void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
 (
     fvMatrix<vector>& eqn,
     const label fieldI
@@ -688,6 +728,12 @@ void Foam::fv::actuatorLineSource::addSup
     if (harmonicPitchingActive_)
     {
         harmonicPitching();
+    }
+
+    // If harmonic surge is active, do harmonic surge
+    if (harmonicSurgeActive_)
+    {
+        harmonicSurge();
     }
 
     // Zero out force field
@@ -722,7 +768,7 @@ void Foam::fv::actuatorLineSource::addSup
 }
 
 
-void Foam::fv::actuatorLineSource::addSup
+void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
 (
     fvMatrix<scalar>& eqn,
     const label fieldI
@@ -732,6 +778,12 @@ void Foam::fv::actuatorLineSource::addSup
     if (harmonicPitchingActive_)
     {
         harmonicPitching();
+    }
+
+    // If harmonic surge is active, do harmonic surge
+    if (harmonicSurgeActive_)
+    {
+        harmonicSurge();
     }
 
     const volVectorField& U = mesh_.lookupObject<volVectorField>("U");
@@ -747,7 +799,7 @@ void Foam::fv::actuatorLineSource::addSup
 }
 
 
-void Foam::fv::actuatorLineSource::addSup
+void Foam::fv::actuatorLineSource::addSup //- Source term to compressible momentum equation
 (
     const volScalarField& rho,
     fvMatrix<vector>& eqn,
@@ -758,6 +810,12 @@ void Foam::fv::actuatorLineSource::addSup
     if (harmonicPitchingActive_)
     {
         harmonicPitching();
+    }
+
+    // If harmonic surge is active, do harmonic surge
+    if (harmonicSurgeActive_)
+    {
+        harmonicSurge();
     }
 
     // Zero out force field

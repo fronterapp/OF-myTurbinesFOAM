@@ -532,6 +532,7 @@ Foam::fv::actuatorLineElement::actuatorLineElement
     meshBoundBox_(mesh_.points(), false),
     planformNormal_(vector::zero),
     velocity_(vector::zero),
+    bodyVelocity_(vector::zero),
     forceVector_(vector::zero),
     relativeVelocity_(vector::zero),
     relativeVelocityGeom_(vector::zero),
@@ -610,6 +611,12 @@ const Foam::vector& Foam::fv::actuatorLineElement::relativeVelocity()
 const Foam::vector& Foam::fv::actuatorLineElement::relativeVelocityGeom()
 {
     return relativeVelocityGeom_;
+}
+
+
+const Foam::vector& Foam::fv::actuatorLineElement::bodyVelocity()
+{
+    return bodyVelocity_;
 }
 
 
@@ -729,7 +736,7 @@ void Foam::fv::actuatorLineElement::calculateForce
     inflowVelocity_ -= spanwiseVelocity;
 
     // Calculate relative velocity and Reynolds number
-    relativeVelocity_ = inflowVelocity_ - velocity_ + SMALL*vector::one; //Add SMALL to avoid zero velocity, could lead to division by zero
+    relativeVelocity_ = inflowVelocity_ - velocity_ - bodyVelocity_ + SMALL*vector::one; //Add SMALL to avoid zero velocity, could lead to division by zero
     Re_ = 1.51 + mag(relativeVelocity_)*chordLength_/nu_; // Add 1.51 to Re_ so that profileData.C line 659 gives real result
 
     // Calculate angle of attack (radians)
@@ -737,7 +744,7 @@ void Foam::fv::actuatorLineElement::calculateForce
                             / (mag(planformNormal_)
                             *  mag(relativeVelocity_)));
     scalar angleOfAttackUncorrected = radToDeg(angleOfAttackRad);
-    relativeVelocityGeom_ = freeStreamVelocity_ - velocity_;
+    relativeVelocityGeom_ = freeStreamVelocity_ - velocity_ - bodyVelocity_ + SMALL*vector::one;
     angleOfAttackGeom_ = asin((planformNormal_ & relativeVelocityGeom_)
                        / (mag(planformNormal_)*mag(relativeVelocityGeom_)));
     angleOfAttackGeom_ *= 180.0/pi;
@@ -996,6 +1003,12 @@ void Foam::fv::actuatorLineElement::setSpeed
 void Foam::fv::actuatorLineElement::scaleVelocity(scalar scale)
 {
     velocity_ *= scale;
+}
+
+
+void Foam::fv::actuatorLineElement::setBodyVelocity(vector velocity)
+{
+    bodyVelocity_ = velocity;
 }
 
 

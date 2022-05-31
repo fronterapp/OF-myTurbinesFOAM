@@ -125,6 +125,15 @@ protected:
 
         //- Name of the phase which properties are to be used
         word phaseName_;
+
+        //- Switch for harmonic surge
+        bool harmonicSurgeActive_;
+
+        //- Frequency of harmonic surge in rad/s
+        scalar surgeFreq_;
+
+        //- Amplitude of harmonic surge in meters
+        scalar surgeAmplitude_;
         
     // Protected Member Functions
 
@@ -145,6 +154,9 @@ protected:
 
         //- Execute harmonic pitching for a single time step
         void harmonicPitching();
+
+        //- Execute harmonic surge for a single time step
+        void harmonicSurge();
 
 
 public:
@@ -205,11 +217,17 @@ public:
             //- Pitch the blade about some fraction of the chord
             void pitch(scalar radians, scalar chordFraction);
 
+            //- Surge the actuator line a given distance at a given velocity
+            void surge(scalar distance, scalar velocity);
+
             //- Scale the velocity of all elements
             void scaleVelocity(scalar scale);
 
             //- Set speed of all elements based on rotation
             void setSpeed(vector point, vector axis, scalar omega);
+
+            //- Set all elements' rigid body velocity
+            void setBodyVelocity (vector velocity);
 
             //- Set rotational velocity of all elements for flow curvature
             //  correction
