@@ -493,9 +493,9 @@ void Foam::fv::actuatorLineElement::createOutputFile()
 
     outputFile_ = new OFstream(dir/name_ + ".csv");
 
-    *outputFile_<< "time,root_dist,x,y,z,rel_vel_mag,Re,alpha_deg,"
-                << "alpha_geom_deg,cl,cd,fx,fy,fz,end_effect_factor,"
-                << "c_ref_t,c_ref_n,f_ref_t,f_ref_n" << endl;
+    *outputFile_<< "time,root_dist,x,y,z,rel_vel_mag,body_vel_x,body_vel_y,"
+                << "body_vel_z,Re,alpha_deg,alpha_geom_deg,cl,cd,fx,fy,fz,"
+                << "end_effect_factor,c_ref_t,c_ref_n,f_ref_t,f_ref_n" << endl;
 }
 
 
@@ -507,9 +507,10 @@ void Foam::fv::actuatorLineElement::writePerf()
     // fx,fy,fz,end_effect_factor,c_ref_t,c_ref_n,f_ref_t,f_ref_n
     *outputFile_<< time << "," << rootDistance_ << "," << position_.x() << ","
                 << position_.y() << "," << position_.z() << ","
-                << mag(relativeVelocity_) << "," << Re_ << "," << angleOfAttack_
-                << "," << angleOfAttackGeom_ << "," << liftCoefficient_ << ","
-                << dragCoefficient_ << "," << forceVector_.x() << ","
+                << mag(relativeVelocity_) << "," << bodyVelocity_[0] << ","
+                << bodyVelocity_[1] << "," << bodyVelocity_[2] << "," 
+                << Re_ << "," << angleOfAttack_ << "," << angleOfAttackGeom_ << "," 
+                << liftCoefficient_ << "," << dragCoefficient_ << "," << forceVector_.x() << ","
                 << forceVector_.y() << "," << forceVector_.z() << ","
                 << endEffectFactor_ << "," << tangentialRefCoefficient() << ","
                 << normalRefCoefficient() << "," << tangentialRefForce() << ","
@@ -1030,8 +1031,8 @@ void Foam::fv::actuatorLineElement::bodyRotationVelocity
     // https://gamedev.stackexchange.com/questions/72528/how-can-i-project-a-3d-point-onto-a-3d-line
     if (mag(axis) > 0)
     {
-        vector projection = point + axis * ((position_ - point) & axis)
-                       / (axis & axis);
+        axis /= mag(axis);
+        vector projection = point + axis * ((position_ - point) & axis);
         vector radius = position_ - projection;
         vector rotationVelocity = omega * axis ^ radius; 
         addBodyVelocity(rotationVelocity);
