@@ -1012,6 +1012,33 @@ void Foam::fv::actuatorLineElement::setBodyVelocity(vector velocity)
 }
 
 
+void Foam::fv::actuatorLineElement::addBodyVelocity(vector velocity)
+{
+    bodyVelocity_ += velocity;
+}
+
+
+void Foam::fv::actuatorLineElement::bodyRotationVelocity
+(
+    vector point,
+    vector axis,
+    scalar omega
+)
+{
+    // First find the vector from axis to element position -- formula from
+    // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2 and
+    // https://gamedev.stackexchange.com/questions/72528/how-can-i-project-a-3d-point-onto-a-3d-line
+    if (mag(axis) > 0)
+    {
+        vector projection = point + axis * ((position_ - point) & axis)
+                       / (axis & axis);
+        vector radius = position_ - projection;
+        vector rotationVelocity = omega * axis ^ radius; 
+        addBodyVelocity(rotationVelocity);
+    }
+}
+
+
 const Foam::vector& Foam::fv::actuatorLineElement::force()
 {
     return forceVector_;

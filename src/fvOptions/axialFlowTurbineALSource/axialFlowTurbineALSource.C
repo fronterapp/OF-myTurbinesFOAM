@@ -145,12 +145,12 @@ void Foam::fv::axialFlowTurbineALSource::createBlades()
 
             // Set sizes for actuatorLineSource elementGeometry lists
             elementGeometry[j].setSize(6);
-            elementGeometry[j][0].setSize(3);
-            elementGeometry[j][1].setSize(3);
-            elementGeometry[j][2].setSize(1);
-            elementGeometry[j][3].setSize(3);
-            elementGeometry[j][4].setSize(1);
-            elementGeometry[j][5].setSize(1);
+            elementGeometry[j][0].setSize(3); //Point coordinates for AL source
+            elementGeometry[j][1].setSize(3); //Span direction
+            elementGeometry[j][2].setSize(1); //Chord lenght
+            elementGeometry[j][3].setSize(3); //Chord direction
+            elementGeometry[j][4].setSize(1); //Chord mount
+            elementGeometry[j][5].setSize(1); //Pitch (twist)
 
             // Create geometry point for AL source at origin
             vector point = origin_;

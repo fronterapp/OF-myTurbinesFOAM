@@ -78,13 +78,20 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         reducedFreq_ = pitchDict.lookupOrDefault("reducedFreq", 0.0);
         pitchAmplitude_ = pitchDict.lookupOrDefault("amplitude", 0.0);
 
-        // Read harmonic pitching parameters if present
+        // Read harmonic surge parameters if present
         dictionary surgeDict = coeffs_.subOrEmptyDict("harmonicSurge");
         harmonicSurgeActive_ = surgeDict.lookupOrDefault("active", false);
         surgeFreq_ = surgeDict.lookupOrDefault("frequency", 0.0);
         surgeFreq_*= 2*M_PI; // Transform Hz into rad/s
         surgeAmplitude_ = surgeDict.lookupOrDefault("amplitude", 0.0);
 
+        // Read harmonic roll parameters if present
+        dictionary rollDict = coeffs_.subOrEmptyDict("harmonicRoll");
+        harmonicRollActive_ = rollDict.lookupOrDefault("active", false);
+        rollFreq_ = rollDict.lookupOrDefault("frequency", 0.0);
+        rollFreq_*= 2*M_PI; // Transform Hz into rad/s
+        rollAmplitude_ = rollDict.lookupOrDefault("amplitude", 0.0);
+        rollCenter_ = rollDict.lookupOrDefault("rotationCenter", vector::zero);
 
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
@@ -523,6 +530,21 @@ void Foam::fv::actuatorLineSource::harmonicSurge()
     }
 }
 
+void Foam::fv::actuatorLineSource::harmonicRoll()
+{
+    // Move the actuator line in surge if time has changed
+    scalar t = mesh_.time().value();
+    if (t != lastMotionTime_)
+    {
+        scalar dt = mesh_.time().deltaT().value();
+        scalar deltaRoll = degToRad(rollAmplitude_)*(sin(rollFreq_*t)
+                          - sin(rollFreq_*(t - dt)));
+        scalar rollOmega = degToRad(rollAmplitude_)*rollFreq_*cos(rollFreq_*t);
+        roll(deltaRoll, rollOmega, rollCenter_);
+        lastMotionTime_ = t;
+    }
+}
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::fv::actuatorLineSource::actuatorLineSource
@@ -621,16 +643,14 @@ void Foam::fv::actuatorLineSource::surge(scalar distance, scalar velocity)
     vector translationVector = vector(distance, 0.0, 0.0);
     vector velocityVector = vector(velocity, 0.0, 0.0);
     translate(translationVector);
-    setBodyVelocity(velocityVector);
+    addBodyVelocity(velocityVector);
 }
 
 
-void Foam::fv::actuatorLineSource::pitch(scalar radians, scalar chordFraction)
+void Foam::fv::actuatorLineSource::roll(scalar radians, scalar omega, vector refPoint)
 {
-    forAll(elements_, i)
-    {
-        elements_[i].pitch(radians, chordFraction);
-    }
+    rotate(refPoint, vector(1,0,0), radians);
+    bodyRotationVelocity(refPoint, vector(1,0,0), omega);
 }
 
 
@@ -665,6 +685,7 @@ void Foam::fv::actuatorLineSource::scaleVelocity(scalar scale)
     }
 }
 
+
 void Foam::fv::actuatorLineSource::setBodyVelocity(vector velocityVector)
 {
     forAll(elements_, i)
@@ -672,6 +693,30 @@ void Foam::fv::actuatorLineSource::setBodyVelocity(vector velocityVector)
         elements_[i].setBodyVelocity(velocityVector);
     }
 }
+
+
+void Foam::fv::actuatorLineSource::addBodyVelocity(vector velocityVector)
+{
+    forAll(elements_, i)
+    {
+        elements_[i].addBodyVelocity(velocityVector);
+    }
+}
+
+
+void Foam::fv::actuatorLineSource::bodyRotationVelocity
+(
+    vector point,
+    vector axis,
+    scalar omega
+)
+{
+    forAll(elements_, i)
+    {
+        elements_[i].bodyRotationVelocity(point, axis, omega);
+    }
+}
+
 
 void Foam::fv::actuatorLineSource::setOmega(scalar omega)
 {
@@ -724,6 +769,9 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
     const label fieldI
 )
 {
+    // Zero out body velocity
+    setBodyVelocity(vector::zero);
+
     // If harmonic pitching is active, do harmonic pitching
     if (harmonicPitchingActive_)
     {
@@ -734,6 +782,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
     if (harmonicSurgeActive_)
     {
         harmonicSurge();
+    }
+
+    // If harmonic roll is active, do harmonic surge
+    if (harmonicRollActive_)
+    {
+        harmonicRoll();
     }
 
     // Zero out force field
@@ -774,6 +828,9 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
     const label fieldI
 )
 {
+    // Zero out body velocity
+    setBodyVelocity(vector::zero);
+
     // If harmonic pitching is active, do harmonic pitching
     if (harmonicPitchingActive_)
     {
@@ -784,6 +841,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
     if (harmonicSurgeActive_)
     {
         harmonicSurge();
+    }
+
+    // If harmonic roll is active, do harmonic surge
+    if (harmonicRollActive_)
+    {
+        harmonicRoll();
     }
 
     const volVectorField& U = mesh_.lookupObject<volVectorField>("U");
@@ -806,6 +869,9 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     const label fieldI
 )
 {
+    // Zero out body velocity
+    setBodyVelocity(vector::zero);
+
     // If harmonic pitching is active, do harmonic pitching
     if (harmonicPitchingActive_)
     {
@@ -816,6 +882,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     if (harmonicSurgeActive_)
     {
         harmonicSurge();
+    }
+
+    // If harmonic roll is active, do harmonic surge
+    if (harmonicRollActive_)
+    {
+        harmonicRoll();
     }
 
     // Zero out force field

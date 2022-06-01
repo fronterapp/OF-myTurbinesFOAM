@@ -394,6 +394,12 @@ public:
             //- Set rigid body velocity at the element
             void setBodyVelocity(vector velocity);
 
+            //- Add rigid body velocity at the element
+            void addBodyVelocity(vector velocity);
+
+            //- Account for body rotation velocity
+            void bodyRotationVelocity(vector point, vector axis, scalar omega);
+
             //- Set dynamic stall active
             void setDynamicStallActive(bool active);
 

@@ -134,6 +134,18 @@ protected:
 
         //- Amplitude of harmonic surge in meters
         scalar surgeAmplitude_;
+
+        //- Switch for harmonic roll
+        bool harmonicRollActive_;
+
+        //- Frequency of harmonic roll in rad/s
+        scalar rollFreq_;
+
+        //- Amplitude of harmonic roll in meters
+        scalar rollAmplitude_;
+
+        //- Rotation point center of the roll motion
+        vector rollCenter_;
         
     // Protected Member Functions
 
@@ -157,6 +169,9 @@ protected:
 
         //- Execute harmonic surge for a single time step
         void harmonicSurge();
+
+        //- Execute harmonic roll for a single time step
+        void harmonicRoll();
 
 
 public:
@@ -220,6 +235,9 @@ public:
             //- Surge the actuator line a given distance at a given velocity
             void surge(scalar distance, scalar velocity);
 
+            //- Roll the actuator line
+            void roll(scalar radians, scalar omega, vector refPoint);
+
             //- Scale the velocity of all elements
             void scaleVelocity(scalar scale);
 
@@ -228,6 +246,12 @@ public:
 
             //- Set all elements' rigid body velocity
             void setBodyVelocity (vector velocity);
+
+            //- Add some quantity to all elements' rigid body velocity
+            void addBodyVelocity (vector velocity);
+
+            //- Account for velocity due to body rotation
+            void bodyRotationVelocity (vector point, vector axis, scalar omega);
 
             //- Set rotational velocity of all elements for flow curvature
             //  correction
