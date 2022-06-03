@@ -146,7 +146,31 @@ protected:
 
         //- Rotation point center of the roll motion
         vector rollCenter_;
-        
+
+        //- Switch for harmonic floater motion
+        bool harmonicFloaterActive_;
+
+        //- Amplitude of floater translation motion (surge sway heave) in meters 
+        vector harmonicTraAmp_;
+
+        //- Frequency of floater translation motion in Hz
+        vector harmonicTraFreq_;
+
+        //- Phase shift of floater translation motion in deg
+        vector harmonicTraPhase_;
+
+        //- Amplitude of floater rotation motion (roll pitch yaw) in deg
+        vector harmonicRotAmp_;
+
+        //- Frequency of floater rotation motion in Hz
+        vector harmonicRotFreq_;
+
+        //- Phase shift of floater rotation motion in deg
+        vector harmonicRotPhase_;
+
+        //- Floater's center of rotation
+        vector harmonicRotCenter_;
+
     // Protected Member Functions
 
         //- Create actuator line elements
@@ -173,6 +197,8 @@ protected:
         //- Execute harmonic roll for a single time step
         void harmonicRoll();
 
+        //- Execute harmonic floating motion for a single time step
+        void harmonicFloaterMotion();
 
 public:
 
@@ -238,20 +264,29 @@ public:
             //- Roll the actuator line
             void roll(scalar radians, scalar omega, vector refPoint);
 
+            //- Move the actuator line according to the floater motion
+            void floaterMove(vector translation, vector rotation, vector velocity, vector omega);
+
+            //- Return the intrinsic rotation matrix (zy'x'') given the roll-pitch-yaw angles
+            tensor floaterRotMatrix(const vector &rotAngles);
+
+            //- Tranform a given rotation matrix into an axis-angle rotation
+            void floaterRotAxis(const tensor &rotMatrix, vector &axis, scalar &angle);
+
             //- Scale the velocity of all elements
             void scaleVelocity(scalar scale);
 
             //- Set speed of all elements based on rotation
             void setSpeed(vector point, vector axis, scalar omega);
 
-            //- Set all elements' rigid body velocity
-            void setBodyVelocity (vector velocity);
+            //- Set floater velocity of all elements
+            void setFloaterVelocity(vector velocity);
 
-            //- Add some quantity to all elements' rigid body velocity
-            void addBodyVelocity (vector velocity);
+            //- Add velocity to all elements based on floater translation
+            void addFloaterVelocity(vector velocity);
 
-            //- Account for velocity due to body rotation
-            void bodyRotationVelocity (vector point, vector axis, scalar omega);
+            //- Add velocity to all elements based on floater rotation
+            void addFloaterOmega(vector point, vector axis, scalar omega);
 
             //- Set rotational velocity of all elements for flow curvature
             //  correction

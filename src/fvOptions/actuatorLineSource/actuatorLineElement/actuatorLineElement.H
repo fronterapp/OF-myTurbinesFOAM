@@ -104,8 +104,8 @@ protected:
         //- Velocity of the element
         vector velocity_;
 
-        //- Velocity of the element associated to a rigid body motion
-        vector bodyVelocity_;
+        //- Velocity of the element associated to floating motion
+        vector floaterVelocity_;
 
         //- Free stream velocity
         vector freeStreamVelocity_;
@@ -316,8 +316,8 @@ public:
             //- Return geometric relative velocity
             const vector& relativeVelocityGeom();
 
-            //- Return rigid body velocity
-            const vector& bodyVelocity();
+            //- Return floater velocity
+            const vector& floaterVelocity();
 
             //- Return element angle of attack in degrees
             const scalar& angleOfAttack();
@@ -391,14 +391,14 @@ public:
             //- Scale the velocity
             void scaleVelocity(scalar scale);
 
-            //- Set rigid body velocity at the element
-            void setBodyVelocity(vector velocity);
+            //- Set element velocity due to floating motion
+            void setFloaterVelocity(vector velocity);
 
-            //- Add rigid body velocity at the element
-            void addBodyVelocity(vector velocity);
+            //- Add element velocity due to floating motion
+            void addFloaterVelocity(vector velocity);
 
-            //- Account for body rotation velocity
-            void bodyRotationVelocity(vector point, vector axis, scalar omega);
+            //- Add element velocity due to floating rotation motion
+            void addFloaterOmega(vector point, vector axis, scalar omega);
 
             //- Set dynamic stall active
             void setDynamicStallActive(bool active);
