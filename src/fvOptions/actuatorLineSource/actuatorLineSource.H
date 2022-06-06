@@ -150,7 +150,7 @@ protected:
         //- Switch for harmonic floater motion
         bool harmonicFloaterActive_;
 
-        //- Amplitude of floater translation motion (surge sway heave) in meters 
+        //- Amplitude of floater translation motion (x y z, inertial frame) in meters 
         vector harmonicTraAmp_;
 
         //- Frequency of floater translation motion in Hz
@@ -159,7 +159,7 @@ protected:
         //- Phase shift of floater translation motion in deg
         vector harmonicTraPhase_;
 
-        //- Amplitude of floater rotation motion (roll pitch yaw) in deg
+        //- Amplitude of floater rotation motion (roll pitch yaw, rotating frame) in deg
         vector harmonicRotAmp_;
 
         //- Frequency of floater rotation motion in Hz

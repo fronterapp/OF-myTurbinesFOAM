@@ -738,10 +738,10 @@ void Foam::fv::actuatorLineSource::roll(scalar radians, scalar omega, vector ref
 
 void Foam::fv::actuatorLineSource::floaterMove
 (
-    vector translationF,
+    vector translation,
     vector rotation,
-    vector velocityF,
-    vector omegaF
+    vector velocity,
+    vector omega
 )
 {
     // Rotation matrix: from inertial to floater frame
@@ -750,31 +750,44 @@ void Foam::fv::actuatorLineSource::floaterMove
     tensor rotMatrixFI = rotMatrixIF.T();
     
     // Translation motion in inertial frame 
-    vector translationI = rotMatrixFI & translationF;
-    vector velocityI = rotMatrixFI & velocityF;
+    // vector translationI = rotMatrixFI & translationF;
+    // vector velocityI = rotMatrixFI & velocityF;
 
-    translate(translationI);
-    addFloaterVelocity(velocityI);
-    harmonicRotCenter_ += translationI;
+    translate(translation);
+    addFloaterVelocity(velocity);
+    harmonicRotCenter_ += translation;
 
     // Transform rotMatrixI into axis-angle 
     // rotation so that we can take advantage 
     // of the in-built "rotate" function.
-    // The axis is defined in the inertial frame.
-    vector rotAxisI;
+    // Rotation axis is the same in I and F frames
+    // (rotation does not affect it)
+    vector rotAxis;
     scalar angle;
-    floaterRotAxis(rotMatrixIF, rotAxisI, angle);
-    
-    // Rotation axis in floater frame
-    vector rotAxisF = rotMatrixIF & rotAxisI;
-
+    floaterRotAxis(rotMatrixIF, rotAxis, angle);
+          
     // Project angular speed (given in floater frame)
     // onto rotation axis
-    scalar omegaAxis = rotAxisF & omegaF;
+    //scalar omegaAxis = rotAxis & omega;
+
+    // Dummy vector in case there is no rotation
+    vector omegaAxisI = vector(1, 0, 0);
+    scalar omegaNorm = mag(omega);
+    if (omegaNorm > SMALL)
+    {
+        omegaAxisI = rotMatrixFI & (omega / omegaNorm);
+    }
+
+    Info<< "Rotation angles: " << rotation << endl;
+    Info<< "Rotation matrix (IF): " << rotMatrixIF << endl;
+    Info<< "Rotation axis: " << rotAxis << endl;
+    Info<< "Angular speed (F): " << omega << endl;
+    Info<< "Angular speed axis:" << omegaAxisI << endl;
 
     // Rotation motion 
-    rotate(harmonicRotCenter_, rotAxisI, angle);
-    addFloaterOmega(harmonicRotCenter_, rotAxisI, omegaAxis);
+    rotate(harmonicRotCenter_, rotAxis, angle);
+    addFloaterOmega(harmonicRotCenter_, omegaAxisI, omegaNorm);
+    //addFloaterOmega(harmonicRotCenter_, rotAxis, omegaAxis);
 }
 
 
