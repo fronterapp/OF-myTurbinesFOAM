@@ -395,10 +395,10 @@ public:
             void setFloaterVelocity(vector velocity);
 
             //- Add element velocity due to floating motion
-            void addFloaterVelocity(vector velocity);
+            void addFloaterVelocity(const vector &velocity);
 
             //- Add element velocity due to floating rotation motion
-            void addFloaterOmega(vector point, vector axis, scalar omega);
+            void addFloaterOmega(const vector &point, const vector &axis, const scalar &omega);
 
             //- Set dynamic stall active
             void setDynamicStallActive(bool active);

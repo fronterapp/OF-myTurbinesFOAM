@@ -724,6 +724,7 @@ void Foam::fv::actuatorLineElement::calculateForce
         Info<< "    chordDirection: " << chordDirection_ << endl;
         Info<< "    spanDirection: " << spanDirection_ << endl;
         Info<< "    elementVelocity: " << velocity_ << endl;
+        Info<< "    floaterVelocity: " << floaterVelocity_ << endl;
         Info<< "    planformNormal: " << planformNormal_ << endl;
     }
 
@@ -1013,7 +1014,7 @@ void Foam::fv::actuatorLineElement::setFloaterVelocity(vector velocity)
 }
 
 
-void Foam::fv::actuatorLineElement::addFloaterVelocity(vector velocity)
+void Foam::fv::actuatorLineElement::addFloaterVelocity(const vector &velocity)
 {
     floaterVelocity_ += velocity;
 }
@@ -1021,20 +1022,20 @@ void Foam::fv::actuatorLineElement::addFloaterVelocity(vector velocity)
 
 void Foam::fv::actuatorLineElement::addFloaterOmega
 (
-    vector point,
-    vector axis,
-    scalar omega
+    const vector &point,
+    const vector &axis,
+    const scalar &omega
 )
 {
     // First find the vector from axis to element position -- formula from
     // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2 and
     // https://gamedev.stackexchange.com/questions/72528/how-can-i-project-a-3d-point-onto-a-3d-line
     if (mag(axis) > 0)
-    {
-        axis /= mag(axis);
-        vector projection = point + axis * ((position_ - point) & axis);
+    {   
+        vector n = axis / mag(axis);
+        vector projection = point + n * ((position_ - point) & n);
         vector radius = position_ - projection;
-        vector rotationVelocity = omega * axis ^ radius; 
+        vector rotationVelocity = omega * n ^ radius; 
         addFloaterVelocity(rotationVelocity);
     }
 }

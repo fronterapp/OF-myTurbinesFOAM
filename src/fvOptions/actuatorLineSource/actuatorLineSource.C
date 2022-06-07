@@ -78,35 +78,20 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         reducedFreq_ = pitchDict.lookupOrDefault("reducedFreq", 0.0);
         pitchAmplitude_ = pitchDict.lookupOrDefault("amplitude", 0.0);
 
-        // Read harmonic surge parameters if present
-        dictionary surgeDict = coeffs_.subOrEmptyDict("harmonicSurge");
-        harmonicSurgeActive_ = surgeDict.lookupOrDefault("active", false);
-        surgeFreq_ = surgeDict.lookupOrDefault("frequency", 0.0);
-        surgeFreq_*= 2*M_PI; // Transform Hz into rad/s
-        surgeAmplitude_ = surgeDict.lookupOrDefault("amplitude", 0.0);
-
-        // Read harmonic roll parameters if present
-        dictionary rollDict = coeffs_.subOrEmptyDict("harmonicRoll");
-        harmonicRollActive_ = rollDict.lookupOrDefault("active", false);
-        rollFreq_ = rollDict.lookupOrDefault("frequency", 0.0);
-        rollFreq_*= 2*M_PI; // Transform Hz into rad/s
-        rollAmplitude_ = rollDict.lookupOrDefault("amplitude", 0.0);
-        rollCenter_ = rollDict.lookupOrDefault("rotationCenter", vector::zero);
-
         // Read harmonic floater motion parameters if present
         dictionary harmonicFloaterDict = coeffs_.subOrEmptyDict("harmonicFloaterMotion");
         harmonicFloaterActive_ = harmonicFloaterDict.lookupOrDefault("active", false);
         harmonicTraAmp_ = harmonicFloaterDict.lookupOrDefault("translationAmplitude", vector::zero);
         harmonicTraFreq_ = harmonicFloaterDict.lookupOrDefault("translationFrequency", vector::zero);
-        harmonicTraFreq_*= 2*M_PI; // Transform Hz into rad/s
-        harmonicTraPhase_ = harmonicFloaterDict.lookupOrDefault("translationPhase", vector::zero);
         harmonicRotAmp_ = harmonicFloaterDict.lookupOrDefault("rotationAmplitude", vector::zero);
-        harmonicRotAmp_ *= M_PI / 180; // Transform deg into rad     
         harmonicRotFreq_ = harmonicFloaterDict.lookupOrDefault("rotationFrequency", vector::zero);
+        rotCenter_ = harmonicFloaterDict.lookupOrDefault("rotationCenter", vector::zero);
+        rot0_ = harmonicFloaterDict.lookupOrDefault("initialRotation", vector::zero);
+        harmonicTraFreq_*= 2*M_PI; // Transform Hz into rad/s
+        harmonicRotAmp_ *= M_PI / 180; // Transform deg into rad     
         harmonicRotFreq_*= 2*M_PI; // Transform Hz into rad/s      
-        harmonicRotPhase_ = harmonicFloaterDict.lookupOrDefault("rotationPhase", vector::zero);
-        harmonicRotPhase_ *= M_PI / 180; // Transform deg into rad     
-        harmonicRotCenter_ = harmonicFloaterDict.lookupOrDefault("rotationCenter", vector::zero);
+        rot0_ *= M_PI / 180; // Transform deg into rad  
+        orientation_ = floaterRotMatrix(rot0_);
 
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
@@ -530,56 +515,34 @@ void Foam::fv::actuatorLineSource::harmonicPitching()
     }
 }
 
-void Foam::fv::actuatorLineSource::harmonicSurge()
-{
-    // Move the actuator line in surge if time has changed
-    scalar t = mesh_.time().value();
-    if (t != lastMotionTime_)
-    {
-        scalar dt = mesh_.time().deltaT().value();
-        scalar deltaPos = surgeAmplitude_*(sin(surgeFreq_*t)
-                          - sin(surgeFreq_*(t - dt))); // Current - Previous surge
-        scalar surgeVel = surgeAmplitude_*surgeFreq_*cos(surgeFreq_*t);
-        surge(deltaPos, surgeVel);
-        lastMotionTime_ = t;
-    }
-}
-
-void Foam::fv::actuatorLineSource::harmonicRoll()
-{
-    // Move the actuator line in surge if time has changed
-    scalar t = mesh_.time().value();
-    if (t != lastMotionTime_)
-    {
-        scalar dt = mesh_.time().deltaT().value();
-        scalar deltaRoll = degToRad(rollAmplitude_)*(sin(rollFreq_*t)
-                          - sin(rollFreq_*(t - dt)));
-        scalar rollOmega = degToRad(rollAmplitude_)*rollFreq_*cos(rollFreq_*t);
-        roll(deltaRoll, rollOmega, rollCenter_);
-        lastMotionTime_ = t;
-    }
-}
 
 void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
 {
-    // If time has changed, move the actuator line according to harmonic floater motion
     scalar t = mesh_.time().value();
+    // If time has changed, move the actuator line according to harmonic floater motion
     if (t != lastMotionTime_)
     {
+        vector translation, rotation, velocity, omega;
         scalar dt = mesh_.time().deltaT().value();
-        vector deltaTran, deltaRot, floaterVelocity, floaterOmega;
-        forAll(deltaTran, i)
+        forAll(translation, i)
         {
-            deltaTran[i] = harmonicTraAmp_[i] * (sin(harmonicTraFreq_[i]*t)
-                          - sin(harmonicTraFreq_[i]*(t - dt)));                          
-            deltaRot[i] = harmonicRotAmp_[i] * (sin(harmonicRotFreq_[i]*t)
-                          - sin(harmonicRotFreq_[i]*(t - dt)));                  
-            floaterVelocity[i] = harmonicTraFreq_[i] * harmonicTraAmp_[i]
+            translation[i] = harmonicTraAmp_[i] * (sin(harmonicTraFreq_[i]*t)
+                            - sin(harmonicTraFreq_[i]*(t-dt))) ;                         
+            rotation[i] = rot0_[i] + harmonicRotAmp_[i] * sin(harmonicRotFreq_[i]*t);                  
+            velocity[i] = harmonicTraFreq_[i] * harmonicTraAmp_[i]
                                 * cos(harmonicTraFreq_[i] * t);
-            floaterOmega[i] = harmonicRotFreq_[i] * harmonicRotAmp_[i]
+            omega[i] = harmonicRotFreq_[i] * harmonicRotAmp_[i]
                                 * cos(harmonicRotFreq_[i] * t);
         }
-        floaterMove(deltaTran, deltaRot, floaterVelocity, floaterOmega);
+        // Rotation matrix: from inertial (I) to floater (F) frame
+        tensor rotMatrix = floaterRotMatrix(rotation);
+        
+        // omega is given in floater (F) frame and thus
+        // has to be transformed into inertial (I)
+        omega = rotMatrix.T() & omega;
+
+        // Move the actuator line according to the computed values
+        floaterMove(translation, rotMatrix, velocity, omega);
         lastMotionTime_ = t;
     }
 }
@@ -720,74 +683,73 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
 }
 
 
-void Foam::fv::actuatorLineSource::surge(scalar distance, scalar velocity)
-{
-    vector translationVector = vector(distance, 0.0, 0.0);
-    vector velocityVector = vector(velocity, 0.0, 0.0);
-    translate(translationVector);
-    addFloaterVelocity(velocityVector);
-}
-
-
-void Foam::fv::actuatorLineSource::roll(scalar radians, scalar omega, vector refPoint)
-{
-    rotate(refPoint, vector(1,0,0), radians);
-    addFloaterOmega(refPoint, vector(1,0,0), omega);
-}
-
-
 void Foam::fv::actuatorLineSource::floaterMove
 (
-    vector translation,
-    vector rotation,
-    vector velocity,
-    vector omega
+    const vector &translation,
+    const tensor &rotMatrix,
+    const vector &velocity,
+    const vector &omega
 )
 {
-    // Rotation matrix: from inertial to floater frame
-    tensor rotMatrixIF = floaterRotMatrix(rotation);
-    // Rotation matrix: from floater to inertial frame
-    tensor rotMatrixFI = rotMatrixIF.T();
-    
-    // Translation motion in inertial frame 
-    // vector translationI = rotMatrixFI & translationF;
-    // vector velocityI = rotMatrixFI & velocityF;
+    // Total rotation matrix: 
+    // go back to unrotated orientation 
+    // and rotate again with rotMatrix
+    // R = Rn * R(n-1)^T
+    tensor totalRotMatrix = rotMatrix & orientation_.T();
 
+    // Update current orientation
+    orientation_ = rotMatrix;
+
+    // Execute rotation routine only if rotation
+    // angle is not zero. From the formula:
+    // tr(R) = 1 + 2cos(angle)
+    // angle==0 if tr(R) ==3
+    if(!equal(tr(totalRotMatrix), scalar(3.0)))
+    {
+        // Transform rotation matrix into axis-angle 
+        // rotation so that we can take advantage 
+        // of the in-built "rotate" function.
+        // Rotation axis is the same in I and F frames
+        vector rotAxis;
+        scalar angle;
+        floaterRotAxis(totalRotMatrix, rotAxis, angle);   
+
+        // Perform rotation wrt the rotation center
+        // from the previous timestep
+        // R * ( x_(n-1) - c_(n-1) )
+        rotate(rotCenter_, rotAxis, angle);
+        if(debug)
+        {
+            Info<< "Accounting for floating motion... " << endl;
+            Info<< "Actuator line rotation matrix: " << rotMatrix << endl;
+            Info<< "Rotating " << angle << " [rad] along the axis " 
+            << rotAxis << endl;
+            Info<< "Rotation center: " << rotCenter_ << endl;
+        }
+    }
+
+    // Now translate 
     translate(translation);
-    addFloaterVelocity(velocity);
-    harmonicRotCenter_ += translation;
+    
+    // Update rotation center
+    rotCenter_ += translation;
 
-    // Transform rotMatrixI into axis-angle 
-    // rotation so that we can take advantage 
-    // of the in-built "rotate" function.
-    // Rotation axis is the same in I and F frames
-    // (rotation does not affect it)
-    vector rotAxis;
-    scalar angle;
-    floaterRotAxis(rotMatrixIF, rotAxis, angle);
-          
-    // Project angular speed (given in floater frame)
-    // onto rotation axis
-    //scalar omegaAxis = rotAxis & omega;
+    // Set floater velocity
+    setFloaterVelocity(velocity);
 
-    // Dummy vector in case there is no rotation
-    vector omegaAxisI = vector(1, 0, 0);
+    // Add velocity due to omega
     scalar omegaNorm = mag(omega);
     if (omegaNorm > SMALL)
     {
-        omegaAxisI = rotMatrixFI & (omega / omegaNorm);
+        // Rotation vector is given by the angular speed
+        vector omegaAxis = omega / omegaNorm;
+        addFloaterOmega(rotCenter_, omegaAxis, omegaNorm);
     }
 
-    Info<< "Rotation angles: " << rotation << endl;
-    Info<< "Rotation matrix (IF): " << rotMatrixIF << endl;
-    Info<< "Rotation axis: " << rotAxis << endl;
-    Info<< "Angular speed (F): " << omega << endl;
-    Info<< "Angular speed axis:" << omegaAxisI << endl;
-
-    // Rotation motion 
-    rotate(harmonicRotCenter_, rotAxis, angle);
-    addFloaterOmega(harmonicRotCenter_, omegaAxisI, omegaNorm);
-    //addFloaterOmega(harmonicRotCenter_, rotAxis, omegaAxis);
+    if(debug)
+    {
+        Info<< "Translating: " << translation << " [m]" << endl; 
+    }
 }
 
 
@@ -887,7 +849,7 @@ void Foam::fv::actuatorLineSource::floaterRotAxis
 }
 
 
-void Foam::fv::actuatorLineSource::setFloaterVelocity(vector velocityVector)
+void Foam::fv::actuatorLineSource::setFloaterVelocity(const vector &velocityVector)
 {
     forAll(elements_, i)
     {
@@ -896,7 +858,7 @@ void Foam::fv::actuatorLineSource::setFloaterVelocity(vector velocityVector)
 }
 
 
-void Foam::fv::actuatorLineSource::addFloaterVelocity(vector velocityVector)
+void Foam::fv::actuatorLineSource::addFloaterVelocity(const vector &velocityVector)
 {
     forAll(elements_, i)
     {
@@ -907,9 +869,9 @@ void Foam::fv::actuatorLineSource::addFloaterVelocity(vector velocityVector)
 
 void Foam::fv::actuatorLineSource::addFloaterOmega
 (
-    vector point,
-    vector axis,
-    scalar omega
+    const vector &point,
+    const vector &axis,
+    const scalar &omega
 )
 {
     forAll(elements_, i)
@@ -961,25 +923,10 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
     const label fieldI
 )
 {
-    // Zero out floater velocity
-    setFloaterVelocity(vector::zero);
-
     // If harmonic pitching is active, do harmonic pitching
     if (harmonicPitchingActive_)
     {
         harmonicPitching();
-    }
-
-    // If harmonic surge is active, do harmonic surge
-    if (harmonicSurgeActive_)
-    {
-        harmonicSurge();
-    }
-
-    // If harmonic roll is active, do harmonic surge
-    if (harmonicRollActive_)
-    {
-        harmonicRoll();
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
@@ -1026,25 +973,10 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
     const label fieldI
 )
 {
-    // Zero out floater velocity
-    setFloaterVelocity(vector::zero);
-
     // If harmonic pitching is active, do harmonic pitching
     if (harmonicPitchingActive_)
     {
         harmonicPitching();
-    }
-
-    // If harmonic surge is active, do harmonic surge
-    if (harmonicSurgeActive_)
-    {
-        harmonicSurge();
-    }
-
-    // If harmonic roll is active, do harmonic surge
-    if (harmonicRollActive_)
-    {
-        harmonicRoll();
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
@@ -1073,25 +1005,10 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     const label fieldI
 )
 {
-    // Zero out floater velocity
-    setFloaterVelocity(vector::zero);
-
     // If harmonic pitching is active, do harmonic pitching
     if (harmonicPitchingActive_)
     {
         harmonicPitching();
-    }
-
-    // If harmonic surge is active, do harmonic surge
-    if (harmonicSurgeActive_)
-    {
-        harmonicSurge();
-    }
-
-    // If harmonic roll is active, do harmonic surge
-    if (harmonicRollActive_)
-    {
-        harmonicRoll();
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly

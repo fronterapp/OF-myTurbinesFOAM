@@ -126,27 +126,6 @@ protected:
         //- Name of the phase which properties are to be used
         word phaseName_;
 
-        //- Switch for harmonic surge
-        bool harmonicSurgeActive_;
-
-        //- Frequency of harmonic surge in rad/s
-        scalar surgeFreq_;
-
-        //- Amplitude of harmonic surge in meters
-        scalar surgeAmplitude_;
-
-        //- Switch for harmonic roll
-        bool harmonicRollActive_;
-
-        //- Frequency of harmonic roll in rad/s
-        scalar rollFreq_;
-
-        //- Amplitude of harmonic roll in meters
-        scalar rollAmplitude_;
-
-        //- Rotation point center of the roll motion
-        vector rollCenter_;
-
         //- Switch for harmonic floater motion
         bool harmonicFloaterActive_;
 
@@ -165,11 +144,17 @@ protected:
         //- Frequency of floater rotation motion in Hz
         vector harmonicRotFreq_;
 
-        //- Phase shift of floater rotation motion in deg
+        //- Phase shift of floater translation motion in deg
         vector harmonicRotPhase_;
 
         //- Floater's center of rotation
-        vector harmonicRotCenter_;
+        vector rotCenter_;
+
+        //- Floater's orientation at t=0
+        vector rot0_;
+
+        //- Floater's orientation as a zy'x'' rotation Matrix
+        tensor orientation_;
 
     // Protected Member Functions
 
@@ -190,12 +175,6 @@ protected:
 
         //- Execute harmonic pitching for a single time step
         void harmonicPitching();
-
-        //- Execute harmonic surge for a single time step
-        void harmonicSurge();
-
-        //- Execute harmonic roll for a single time step
-        void harmonicRoll();
 
         //- Execute harmonic floating motion for a single time step
         void harmonicFloaterMotion();
@@ -258,14 +237,8 @@ public:
             //- Pitch the blade about some fraction of the chord
             void pitch(scalar radians, scalar chordFraction);
 
-            //- Surge the actuator line a given distance at a given velocity
-            void surge(scalar distance, scalar velocity);
-
-            //- Roll the actuator line
-            void roll(scalar radians, scalar omega, vector refPoint);
-
             //- Move the actuator line according to the floater motion
-            void floaterMove(vector translation, vector rotation, vector velocity, vector omega);
+            void floaterMove(const vector &translation, const tensor &rotMatrix, const vector &velocity, const vector &omega);
 
             //- Return the intrinsic rotation matrix (zy'x'') given the roll-pitch-yaw angles
             tensor floaterRotMatrix(const vector &rotAngles);
@@ -280,13 +253,13 @@ public:
             void setSpeed(vector point, vector axis, scalar omega);
 
             //- Set floater velocity of all elements
-            void setFloaterVelocity(vector velocity);
+            void setFloaterVelocity(const vector &velocity);
 
             //- Add velocity to all elements based on floater translation
-            void addFloaterVelocity(vector velocity);
+            void addFloaterVelocity(const vector &velocity);
 
             //- Add velocity to all elements based on floater rotation
-            void addFloaterOmega(vector point, vector axis, scalar omega);
+            void addFloaterOmega(const vector &point, const vector &axis, const scalar &omega);
 
             //- Set rotational velocity of all elements for flow curvature
             //  correction
