@@ -493,8 +493,8 @@ void Foam::fv::actuatorLineElement::createOutputFile()
 
     outputFile_ = new OFstream(dir/name_ + ".csv");
 
-    *outputFile_<< "time,root_dist,x,y,z,rel_vel_mag,body_vel_x,body_vel_y,"
-                << "body_vel_z,Re,alpha_deg,alpha_geom_deg,cl,cd,fx,fy,fz,"
+    *outputFile_<< "time,root_dist,x,y,z,rel_vel_mag,float_vel_x,float_vel_y,"
+                << "float_vel_z,Re,alpha_deg,alpha_geom_deg,cl,cd,fx,fy,fz,"
                 << "end_effect_factor,c_ref_t,c_ref_n,f_ref_t,f_ref_n" << endl;
 }
 
@@ -507,8 +507,8 @@ void Foam::fv::actuatorLineElement::writePerf()
     // fx,fy,fz,end_effect_factor,c_ref_t,c_ref_n,f_ref_t,f_ref_n
     *outputFile_<< time << "," << rootDistance_ << "," << position_.x() << ","
                 << position_.y() << "," << position_.z() << ","
-                << mag(relativeVelocity_) << "," << bodyVelocity_[0] << ","
-                << bodyVelocity_[1] << "," << bodyVelocity_[2] << "," 
+                << mag(relativeVelocity_) << "," << floaterVelocity_[0] << ","
+                << floaterVelocity_[1] << "," << floaterVelocity_[2] << "," 
                 << Re_ << "," << angleOfAttack_ << "," << angleOfAttackGeom_ << "," 
                 << liftCoefficient_ << "," << dragCoefficient_ << "," << forceVector_.x() << ","
                 << forceVector_.y() << "," << forceVector_.z() << ","
@@ -533,7 +533,7 @@ Foam::fv::actuatorLineElement::actuatorLineElement
     meshBoundBox_(mesh_.points(), false),
     planformNormal_(vector::zero),
     velocity_(vector::zero),
-    bodyVelocity_(vector::zero),
+    floaterVelocity_(vector::zero),
     forceVector_(vector::zero),
     relativeVelocity_(vector::zero),
     relativeVelocityGeom_(vector::zero),
@@ -615,9 +615,9 @@ const Foam::vector& Foam::fv::actuatorLineElement::relativeVelocityGeom()
 }
 
 
-const Foam::vector& Foam::fv::actuatorLineElement::bodyVelocity()
+const Foam::vector& Foam::fv::actuatorLineElement::floaterVelocity()
 {
-    return bodyVelocity_;
+    return floaterVelocity_;
 }
 
 
@@ -724,6 +724,7 @@ void Foam::fv::actuatorLineElement::calculateForce
         Info<< "    chordDirection: " << chordDirection_ << endl;
         Info<< "    spanDirection: " << spanDirection_ << endl;
         Info<< "    elementVelocity: " << velocity_ << endl;
+        Info<< "    floaterVelocity: " << floaterVelocity_ << endl;
         Info<< "    planformNormal: " << planformNormal_ << endl;
     }
 
@@ -737,7 +738,7 @@ void Foam::fv::actuatorLineElement::calculateForce
     inflowVelocity_ -= spanwiseVelocity;
 
     // Calculate relative velocity and Reynolds number
-    relativeVelocity_ = inflowVelocity_ - velocity_ - bodyVelocity_ + SMALL*vector::one; //Add SMALL to avoid zero velocity, could lead to division by zero
+    relativeVelocity_ = inflowVelocity_ - velocity_ - floaterVelocity_ + SMALL*vector::one; //Add SMALL to avoid zero velocity, could lead to division by zero
     Re_ = 1.51 + mag(relativeVelocity_)*chordLength_/nu_; // Add 1.51 to Re_ so that profileData.C line 659 gives real result
 
     // Calculate angle of attack (radians)
@@ -745,7 +746,7 @@ void Foam::fv::actuatorLineElement::calculateForce
                             / (mag(planformNormal_)
                             *  mag(relativeVelocity_)));
     scalar angleOfAttackUncorrected = radToDeg(angleOfAttackRad);
-    relativeVelocityGeom_ = freeStreamVelocity_ - velocity_ - bodyVelocity_ + SMALL*vector::one;
+    relativeVelocityGeom_ = freeStreamVelocity_ - velocity_ - floaterVelocity_ + SMALL*vector::one;
     angleOfAttackGeom_ = asin((planformNormal_ & relativeVelocityGeom_)
                        / (mag(planformNormal_)*mag(relativeVelocityGeom_)));
     angleOfAttackGeom_ *= 180.0/pi;
@@ -1007,35 +1008,35 @@ void Foam::fv::actuatorLineElement::scaleVelocity(scalar scale)
 }
 
 
-void Foam::fv::actuatorLineElement::setBodyVelocity(vector velocity)
+void Foam::fv::actuatorLineElement::setFloaterVelocity(vector velocity)
 {
-    bodyVelocity_ = velocity;
+    floaterVelocity_ = velocity;
 }
 
 
-void Foam::fv::actuatorLineElement::addBodyVelocity(vector velocity)
+void Foam::fv::actuatorLineElement::addFloaterVelocity(const vector &velocity)
 {
-    bodyVelocity_ += velocity;
+    floaterVelocity_ += velocity;
 }
 
 
-void Foam::fv::actuatorLineElement::bodyRotationVelocity
+void Foam::fv::actuatorLineElement::addFloaterOmega
 (
-    vector point,
-    vector axis,
-    scalar omega
+    const vector &point,
+    const vector &axis,
+    const scalar &omega
 )
 {
     // First find the vector from axis to element position -- formula from
     // https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2 and
     // https://gamedev.stackexchange.com/questions/72528/how-can-i-project-a-3d-point-onto-a-3d-line
     if (mag(axis) > 0)
-    {
-        axis /= mag(axis);
-        vector projection = point + axis * ((position_ - point) & axis);
+    {   
+        vector n = axis / mag(axis);
+        vector projection = point + n * ((position_ - point) & n);
         vector radius = position_ - projection;
-        vector rotationVelocity = omega * axis ^ radius; 
-        addBodyVelocity(rotationVelocity);
+        vector rotationVelocity = omega * n ^ radius; 
+        addFloaterVelocity(rotationVelocity);
     }
 }
 

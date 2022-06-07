@@ -126,27 +126,36 @@ protected:
         //- Name of the phase which properties are to be used
         word phaseName_;
 
-        //- Switch for harmonic surge
-        bool harmonicSurgeActive_;
+        //- Switch for harmonic floater motion
+        bool harmonicFloaterActive_;
 
-        //- Frequency of harmonic surge in rad/s
-        scalar surgeFreq_;
+        //- Amplitude of floater translation motion (x y z, inertial frame) in meters 
+        vector harmonicTraAmp_;
 
-        //- Amplitude of harmonic surge in meters
-        scalar surgeAmplitude_;
+        //- Frequency of floater translation motion in Hz
+        vector harmonicTraFreq_;
 
-        //- Switch for harmonic roll
-        bool harmonicRollActive_;
+        //- Phase shift of floater translation motion in deg
+        vector harmonicTraPhase_;
 
-        //- Frequency of harmonic roll in rad/s
-        scalar rollFreq_;
+        //- Amplitude of floater rotation motion (roll pitch yaw, rotating frame) in deg
+        vector harmonicRotAmp_;
 
-        //- Amplitude of harmonic roll in meters
-        scalar rollAmplitude_;
+        //- Frequency of floater rotation motion in Hz
+        vector harmonicRotFreq_;
 
-        //- Rotation point center of the roll motion
-        vector rollCenter_;
-        
+        //- Phase shift of floater translation motion in deg
+        vector harmonicRotPhase_;
+
+        //- Floater's center of rotation
+        vector rotCenter_;
+
+        //- Floater's orientation at t=0
+        vector rot0_;
+
+        //- Floater's orientation as a zy'x'' rotation Matrix
+        tensor orientation_;
+
     // Protected Member Functions
 
         //- Create actuator line elements
@@ -167,12 +176,8 @@ protected:
         //- Execute harmonic pitching for a single time step
         void harmonicPitching();
 
-        //- Execute harmonic surge for a single time step
-        void harmonicSurge();
-
-        //- Execute harmonic roll for a single time step
-        void harmonicRoll();
-
+        //- Execute harmonic floating motion for a single time step
+        void harmonicFloaterMotion();
 
 public:
 
@@ -232,11 +237,14 @@ public:
             //- Pitch the blade about some fraction of the chord
             void pitch(scalar radians, scalar chordFraction);
 
-            //- Surge the actuator line a given distance at a given velocity
-            void surge(scalar distance, scalar velocity);
+            //- Move the actuator line according to the floater motion
+            void floaterMove(const vector &translation, const tensor &rotMatrix, const vector &velocity, const vector &omega);
 
-            //- Roll the actuator line
-            void roll(scalar radians, scalar omega, vector refPoint);
+            //- Return the intrinsic rotation matrix (zy'x'') given the roll-pitch-yaw angles
+            tensor floaterRotMatrix(const vector &rotAngles);
+
+            //- Tranform a given rotation matrix into an axis-angle rotation
+            void floaterRotAxis(const tensor &rotMatrix, vector &axis, scalar &angle);
 
             //- Scale the velocity of all elements
             void scaleVelocity(scalar scale);
@@ -244,14 +252,14 @@ public:
             //- Set speed of all elements based on rotation
             void setSpeed(vector point, vector axis, scalar omega);
 
-            //- Set all elements' rigid body velocity
-            void setBodyVelocity (vector velocity);
+            //- Set floater velocity of all elements
+            void setFloaterVelocity(const vector &velocity);
 
-            //- Add some quantity to all elements' rigid body velocity
-            void addBodyVelocity (vector velocity);
+            //- Add velocity to all elements based on floater translation
+            void addFloaterVelocity(const vector &velocity);
 
-            //- Account for velocity due to body rotation
-            void bodyRotationVelocity (vector point, vector axis, scalar omega);
+            //- Add velocity to all elements based on floater rotation
+            void addFloaterOmega(const vector &point, const vector &axis, const scalar &omega);
 
             //- Set rotational velocity of all elements for flow curvature
             //  correction
