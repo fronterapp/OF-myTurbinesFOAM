@@ -316,10 +316,10 @@ bool Foam::fv::turbineALSource::read(const dictionary& dict)
         tsrAmplitude_ = coeffs_.lookupOrDefault("tsrAmplitude", 0.0);
         tsrPhase_ = coeffs_.lookupOrDefault("tsrPhase", 0.0);
 
-        // Multi-phase parameters, if present
-        multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
-        coeffs_.lookup("phaseName") >> phaseName_;
-        
+        // Read harmonic floater motion parameters if present
+        harmonicFloaterDict_ = coeffs_.subOrEmptyDict("harmonicFloaterMotion");
+        harmonicFloaterActive_ = harmonicFloaterDict.lookupOrDefault("active", false);
+
         // Get blade information
         bladesDict_ = coeffs_.subDict("blades");
         nBlades_ = bladesDict_.keys().size();

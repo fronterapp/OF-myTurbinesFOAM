@@ -70,7 +70,10 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
            
         // Multi-phase parameters, if present
         multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
-        coeffs_.lookup("phaseName") >> phaseName_;
+        if(multiPhase)
+        {
+            coeffs_.lookup("phaseName") >> phaseName_;
+        }
 
         // Read harmonic pitching parameters if present
         dictionary pitchDict = coeffs_.subOrEmptyDict("harmonicPitching");

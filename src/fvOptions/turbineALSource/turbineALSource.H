@@ -154,10 +154,16 @@ protected:
 
         //- Switch for multiphase simulations
         bool multiPhase_;
-
-        //- Name of the phase which properties are to be used
-        word phaseName_;
         
+        //- Harmonic floating motion dictionary
+        dictionary harmonicFloaterDict_;
+
+        //- Switch for harmonic floater motion
+        bool harmonicFloaterActive_;
+
+        //- Floater's orientation as a zy'x'' rotation Matrix
+        tensor orientation_;
+
     // Protected Member Functions
 
         //- Rotate a vector

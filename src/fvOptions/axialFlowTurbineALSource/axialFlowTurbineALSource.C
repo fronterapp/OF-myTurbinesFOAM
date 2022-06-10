@@ -244,6 +244,17 @@ void Foam::fv::axialFlowTurbineALSource::createBlades()
         // Do not write force from individual actuator line unless specified
         bladeSubDict.lookupOrAddDefault("writeForceField", false);
 
+        // Add multiphase data
+        multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
+        bladeSubDict.add("multiPhase", multiPhase_);
+        if(multiPhase_)
+        {
+            bladeSubDict.add("phaseName", coeffs_.lookup("phaseName"));
+        }
+
+        // Add harmonic floating motion data
+        bladeSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
+
         dictionary dict;
         dict.add("actuatorLineSourceCoeffs", bladeSubDict);
         dict.add("type", "actuatorLineSource");
