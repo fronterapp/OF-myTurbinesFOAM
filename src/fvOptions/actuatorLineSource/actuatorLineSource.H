@@ -156,6 +156,9 @@ protected:
         //- Floater's orientation as a zy'x'' rotation Matrix
         tensor orientation_;
 
+        //- Floater's orientation at previous time as a zy'x'' rotation Matrix
+        tensor prevOrientation_;
+
     // Protected Member Functions
 
         //- Create actuator line elements
@@ -222,6 +225,11 @@ public:
             //- Return reference to element pointer list
             PtrList<actuatorLineElement>& elements();
 
+            //- Return const reference to the current orientation
+            const tensor& orientation();
+
+            //- Return const reference to the previous orientation
+            const tensor& prevOrientation();
 
         // Edit
 
@@ -241,7 +249,7 @@ public:
             void pitch(scalar radians, scalar chordFraction);
 
             //- Move the actuator line according to the floater motion
-            void floaterMove(const vector &translation, const tensor &rotMatrix, const vector &velocity, const vector &omega);
+            void floaterMove(const vector &translation, const vector &velocity, const vector &omega);
 
             //- Return the intrinsic rotation matrix (zy'x'') given the roll-pitch-yaw angles
             tensor rotAngles2Matrix(const vector &rotAngles);

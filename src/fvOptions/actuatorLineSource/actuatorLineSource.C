@@ -94,7 +94,7 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         harmonicRotAmp_ *= M_PI / 180; // Transform deg into rad     
         harmonicRotFreq_*= 2*M_PI; // Transform Hz into rad/s      
         rot0_ *= M_PI / 180; // Transform deg into rad  
-        orientation_ = rotAngles2Matrix(rot0_);
+        prevOrientation_ = rotAngles2Matrix(rot0_);
 
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
@@ -538,14 +538,14 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
                                 * cos(harmonicRotFreq_[i] * t);
         }
         // Rotation matrix: from inertial (I) to floater (F) frame
-        tensor rotMatrix = rotAngles2Matrix(rotation);
+        orientation_ = rotAngles2Matrix(rotation);
         
         // omega is given in floater (F) frame and thus
         // has to be transformed into inertial (I)
-        omega = rotMatrix.T() & omega;
+        omega = orientation_.T() & omega;
 
         // Move the actuator line according to the computed values
-        floaterMove(translation, rotMatrix, velocity, omega);
+        floaterMove(translation, velocity, omega);
         lastMotionTime_ = t;
     }
 }
@@ -702,7 +702,6 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
 void Foam::fv::actuatorLineSource::floaterMove
 (
     const vector &translation,
-    const tensor &rotMatrix,
     const vector &velocity,
     const vector &omega
 )
@@ -711,10 +710,10 @@ void Foam::fv::actuatorLineSource::floaterMove
     // go back to unrotated orientation 
     // and rotate again with rotMatrix
     // R = Rn * R(n-1)^T
-    tensor totalRotMatrix = rotMatrix & orientation_.T();
+    tensor totalRotMatrix = orientation_ & prevOrientation_.T();
 
     // Update current orientation
-    orientation_ = rotMatrix;
+    orientation_ = prevOrientation_;
 
     // Execute rotation routine only if rotation
     // angle is not zero. From the formula:
@@ -932,6 +931,18 @@ const Foam::volVectorField& Foam::fv::actuatorLineSource::forceField()
 PtrList<Foam::fv::actuatorLineElement>& Foam::fv::actuatorLineSource::elements()
 {
     return elements_;
+}
+
+
+const Foam::tensor& Foam::fv::actuatorLineSource::orientation()
+{
+    return orientation_;
+}
+
+
+const Foam::tensor& Foam::fv::actuatorLineSource::prevOrientation()
+{
+    return prevOrientation_;
 }
 
 

@@ -154,15 +154,18 @@ protected:
 
         //- Switch for multiphase simulations
         bool multiPhase_;
-        
+
         //- Harmonic floating motion dictionary
         dictionary harmonicFloaterDict_;
 
         //- Switch for harmonic floater motion
         bool harmonicFloaterActive_;
 
-        //- Floater's orientation as a zy'x'' rotation Matrix
+        //- Floater's current orientation as a zy'x'' rotation Matrix
         tensor orientation_;
+
+        //- Floater's previous orientation as a zy'x'' rotation Matrix
+        tensor prevOrientation_;
 
     // Protected Member Functions
 

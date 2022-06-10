@@ -350,6 +350,17 @@ void Foam::fv::axialFlowTurbineALSource::createHub()
     // Do not write force from individual actuator line unless specified
     hubSubDict.lookupOrAddDefault("writeForceField", false);
 
+    // Add multiphase data
+    multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
+    hubSubDict.add("multiPhase", multiPhase_);
+    if(multiPhase_)
+    {
+        hubSubDict.add("phaseName", coeffs_.lookup("phaseName"));
+    }
+
+    // Add harmonic floating motion data
+    hubSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
+
     dictionary dict;
     dict.add("actuatorLineSourceCoeffs", hubSubDict);
     dict.add("type", "actuatorLineSource");
@@ -437,6 +448,17 @@ void Foam::fv::axialFlowTurbineALSource::createTower()
 
     // Do not write force from individual actuator line unless specified
     towerSubDict.lookupOrAddDefault("writeForceField", false);
+
+    // Add multiphase data
+    multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
+    towerSubDict.add("multiPhase", multiPhase_);
+    if(multiPhase_)
+    {
+        towerSubDict.add("phaseName", coeffs_.lookup("phaseName"));
+    }
+
+    // Add harmonic floating motion data
+    towerSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
 
     dictionary dict;
     dict.add("actuatorLineSourceCoeffs", towerSubDict);
@@ -755,6 +777,18 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     }
 }
 
+void Foam::fv::axialFlowTurbineALSource::floaterUpdate()
+{
+    // Access orientation values from actuator line
+    // All blades from the same turbine have same
+    // orientation, just acces first blade
+    orientation_ = blades_[0].orientation_();
+    prevOrientation_ = blades_[0].prevOrientation_();
+    tensor totalRotMatrix = orientation_ & prevOrientation_.T();
+
+    // Update rotation axis
+    axis_ = totalRotMatrix & axis_;
+}
 
 void Foam::fv::axialFlowTurbineALSource::addSup
 (
