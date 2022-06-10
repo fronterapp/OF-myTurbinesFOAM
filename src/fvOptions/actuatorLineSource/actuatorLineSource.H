@@ -231,6 +231,9 @@ public:
             //- Rotate the actuator line about a specified axis
             void rotate(vector rotationPoint, vector axis, scalar radians);
 
+            //- Rotate the actuator line using a rotation matrix
+            void rotate(const vector &rotationPoint, const tensor &rotMatrix);
+
             //- Pitch the blade about its chord mount
             void pitch(scalar radians);
 
@@ -241,10 +244,13 @@ public:
             void floaterMove(const vector &translation, const tensor &rotMatrix, const vector &velocity, const vector &omega);
 
             //- Return the intrinsic rotation matrix (zy'x'') given the roll-pitch-yaw angles
-            tensor floaterRotMatrix(const vector &rotAngles);
+            tensor rotAngles2Matrix(const vector &rotAngles);
+
+            //- Tranform a given axis-angle rotation into rotation matrix
+            tensor rotAxis2Matrix(const vector &axis, const scalar &angle);
 
             //- Tranform a given rotation matrix into an axis-angle rotation
-            void floaterRotAxis(const tensor &rotMatrix, vector &axis, scalar &angle);
+            void rotMatrix2Axis(const tensor &rotMatrix, vector &axis, scalar &angle);
 
             //- Scale the velocity of all elements
             void scaleVelocity(scalar scale);

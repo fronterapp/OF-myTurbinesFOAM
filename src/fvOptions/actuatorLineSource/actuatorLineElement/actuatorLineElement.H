@@ -376,6 +376,14 @@ public:
                 scalar radians
             );
 
+            //- Rotate the element using a rotation matrix (RM)
+            void rotate
+            (
+                vector rotationPoint,
+                tensor RM,
+                bool rotateVelocity
+            );
+
             //- Pitch the element about some fraction of the chord
             void pitch(scalar radians, scalar chordFraction=0.25);
 
