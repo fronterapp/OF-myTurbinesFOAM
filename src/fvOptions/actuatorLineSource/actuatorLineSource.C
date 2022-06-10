@@ -91,7 +91,7 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         harmonicRotAmp_ *= M_PI / 180; // Transform deg into rad     
         harmonicRotFreq_*= 2*M_PI; // Transform Hz into rad/s      
         rot0_ *= M_PI / 180; // Transform deg into rad  
-        orientation_ = floaterRotMatrix(rot0_);
+        orientation_ = rotAngles2Matrix(rot0_);
 
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
@@ -535,7 +535,7 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
                                 * cos(harmonicRotFreq_[i] * t);
         }
         // Rotation matrix: from inertial (I) to floater (F) frame
-        tensor rotMatrix = floaterRotMatrix(rotation);
+        tensor rotMatrix = rotAngles2Matrix(rotation);
         
         // omega is given in floater (F) frame and thus
         // has to be transformed into inertial (I)
@@ -633,6 +633,19 @@ void Foam::fv::actuatorLineSource::rotate
 }
 
 
+void Foam::fv::actuatorLineSource::rotate
+(
+    const vector &rotationPoint,
+    const tensor &rotMatrix
+)
+{
+    forAll(elements_, i)
+    {
+        elements_[i].rotate(rotationPoint, rotMatrix, true);
+    }
+}
+
+
 void Foam::fv::actuatorLineSource::pitch(scalar radians)
 {
     forAll(elements_, i)
@@ -706,24 +719,14 @@ void Foam::fv::actuatorLineSource::floaterMove
     // angle==0 if tr(R) ==3
     if(!equal(tr(totalRotMatrix), scalar(3.0)))
     {
-        // Transform rotation matrix into axis-angle 
-        // rotation so that we can take advantage 
-        // of the in-built "rotate" function.
-        // Rotation axis is the same in I and F frames
-        vector rotAxis;
-        scalar angle;
-        floaterRotAxis(totalRotMatrix, rotAxis, angle);   
-
         // Perform rotation wrt the rotation center
         // from the previous timestep
         // R * ( x_(n-1) - c_(n-1) )
-        rotate(rotCenter_, rotAxis, angle);
+        rotate(rotCenter_, totalRotMatrix);
         if(debug)
         {
             Info<< "Accounting for floating motion... " << endl;
             Info<< "Actuator line rotation matrix: " << rotMatrix << endl;
-            Info<< "Rotating " << angle << " [rad] along the axis " 
-            << rotAxis << endl;
             Info<< "Rotation center: " << rotCenter_ << endl;
         }
     }
@@ -753,7 +756,7 @@ void Foam::fv::actuatorLineSource::floaterMove
 }
 
 
-tensor Foam::fv::actuatorLineSource::floaterRotMatrix(const vector &rotAngles)
+tensor Foam::fv::actuatorLineSource::rotAngles2Matrix(const vector &rotAngles)
 {
     scalar c1 = cos(rotAngles.z());
     scalar s1 = sin(rotAngles.z());
@@ -778,8 +781,7 @@ tensor Foam::fv::actuatorLineSource::floaterRotMatrix(const vector &rotAngles)
     return rotMatrix;
 }
 
-
-void Foam::fv::actuatorLineSource::floaterRotAxis
+void Foam::fv::actuatorLineSource::rotMatrix2Axis
 (
     const tensor &rotMatrix,
     vector &axis,
@@ -846,6 +848,37 @@ void Foam::fv::actuatorLineSource::floaterRotAxis
         angle = atan2(s,c);
     }
 
+}
+
+
+tensor Foam::fv::actuatorLineSource::rotAxis2Matrix
+(
+    const vector &axis,
+    const scalar &angle
+)
+{
+    // Declare and define the rotation matrix (from SOWFA)
+    tensor RM;
+    RM.xx() = Foam::sqr(axis.x())
+            + (1.0 - Foam::sqr(axis.x())) * Foam::cos(angle);
+    RM.xy() = axis.x() * axis.y()
+            * (1.0 - Foam::cos(angle)) - axis.z() * Foam::sin(angle);
+    RM.xz() = axis.x() * axis.z()
+            * (1.0 - Foam::cos(angle)) + axis.y() * Foam::sin(angle);
+    RM.yx() = axis.x() * axis.y()
+            * (1.0 - Foam::cos(angle)) + axis.z() * Foam::sin(angle);
+    RM.yy() = Foam::sqr(axis.y())
+            + (1.0 - Foam::sqr(axis.y())) * Foam::cos(angle);
+    RM.yz() = axis.y() * axis.z()
+            * (1.0 - Foam::cos(angle)) - axis.x() * Foam::sin(angle);
+    RM.zx() = axis.x() * axis.z()
+            * (1.0 - Foam::cos(angle)) - axis.y() * Foam::sin(angle);
+    RM.zy() = axis.y() * axis.z()
+            * (1.0 - Foam::cos(angle)) + axis.x() * Foam::sin(angle);
+    RM.zz() = Foam::sqr(axis.z())
+            + (1.0 - Foam::sqr(axis.z())) * Foam::cos(angle);
+
+    return RM;
 }
 
 

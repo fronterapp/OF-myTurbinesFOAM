@@ -908,6 +908,61 @@ void Foam::fv::actuatorLineElement::rotate
 }
 
 
+void Foam::fv::actuatorLineElement::rotate
+(
+    const vector rotationPoint,
+    const tensor RM,
+    bool rotateVelocity=true
+)
+{
+    if (debug)
+    {
+        Info<< "Rotating actuatorLineElement: " << name_ << endl;
+        Info<< "Rotation point: " << rotationPoint << endl;
+        Info<< "Rotation matrix:" << endl << RM << endl;
+        Info<< "Initial position: " << position_ << endl;
+        Info<< "Initial chordDirection: " << chordDirection_ << endl;
+        Info<< "Initial spanDirection: " << spanDirection_ << endl;
+        Info<< "Initial velocity: " << velocity_ << endl;
+    }
+
+    // Rotation matrices make a rotation about the origin, so need to subtract
+    // rotation point off the point to be rotated.
+    vector point = position_;
+    point -= rotationPoint;
+
+    // Perform the rotation.
+    point = RM & point;
+
+    // Return the rotated point to its new location relative to the rotation
+    // point
+    point += rotationPoint;
+
+    // Set the position of the element
+    position_ = point;
+
+    // Rotate the span and chord vectors of the element
+    chordDirection_ = RM & chordDirection_;
+    spanDirection_ = RM & spanDirection_;
+
+    // Rotate the element's velocity vector if specified
+    if (rotateVelocity)
+    {
+        velocity_ = RM & velocity_;
+        chordRefDirection_ = RM & chordRefDirection_;
+    }
+
+    if (debug)
+    {
+        Info<< "Final position: " << position_ << endl;
+        Info<< "Final chordDirection: " << chordDirection_ << endl;
+        Info<< "Final chordRefDirection: " << chordRefDirection_ << endl;
+        Info<< "Final spanDirection: " << spanDirection_ << endl;
+        Info<< "Final velocity: " << velocity_ << endl << endl;
+    }
+}
+
+
 void Foam::fv::actuatorLineElement::pitch
 (
     scalar radians,
