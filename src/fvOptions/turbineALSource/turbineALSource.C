@@ -166,6 +166,16 @@ void Foam::fv::turbineALSource::rotate(scalar radians)
 }
 
 
+void Foam::fv::turbineALSource::floaterUpdate()
+{
+    // Should be defined for each turbine type
+}
+
+void Foam::fv::turbineALSource::floaterUpdateVel()
+{
+    // Should be defined for each turbine type
+}
+
 void Foam::fv::turbineALSource::printPerf()
 {
     Info<< "Azimuthal angle (degrees) of " << name_ << ": " << angleDeg_
@@ -318,7 +328,7 @@ bool Foam::fv::turbineALSource::read(const dictionary& dict)
 
         // Read harmonic floater motion parameters if present
         harmonicFloaterDict_ = coeffs_.subOrEmptyDict("harmonicFloaterMotion");
-        harmonicFloaterActive_ = harmonicFloaterDict.lookupOrDefault("active", false);
+        harmonicFloaterActive_ = harmonicFloaterDict_.lookupOrDefault("active", false);
 
         // Get blade information
         bladesDict_ = coeffs_.subDict("blades");

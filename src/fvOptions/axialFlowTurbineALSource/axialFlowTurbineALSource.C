@@ -255,6 +255,11 @@ void Foam::fv::axialFlowTurbineALSource::createBlades()
         // Add harmonic floating motion data
         bladeSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
 
+        // The actuator line is indeed created by turbineALSource
+        bladeSubDict.add("isTurbine", true);
+
+        // The actuatorLine is indeed created by turbinealsource
+
         dictionary dict;
         dict.add("actuatorLineSourceCoeffs", bladeSubDict);
         dict.add("type", "actuatorLineSource");
@@ -361,6 +366,9 @@ void Foam::fv::axialFlowTurbineALSource::createHub()
     // Add harmonic floating motion data
     hubSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
 
+    // The actuator line is indeed created by turbineALSource
+    hubSubDict.add("isTurbine", true);
+
     dictionary dict;
     dict.add("actuatorLineSourceCoeffs", hubSubDict);
     dict.add("type", "actuatorLineSource");
@@ -460,6 +468,9 @@ void Foam::fv::axialFlowTurbineALSource::createTower()
     // Add harmonic floating motion data
     towerSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
 
+    // The actuator line is indeed created by turbineALSource
+    towerSubDict.add("isTurbine", true);
+
     dictionary dict;
     dict.add("actuatorLineSourceCoeffs", towerSubDict);
     dict.add("type", "actuatorLineSource");
@@ -503,6 +514,7 @@ void Foam::fv::axialFlowTurbineALSource::calcEndEffects()
                 Info<< "    rootDist: " << rootDist << endl;
                 Info<< "    relVel: " << relVel << endl;
             }
+            Info<< "    end effects, elementVel: " << elementVel << endl;
             // Calculate angle between rotor plane and relative velocity
             scalar phi = pi/2.0;
             if (mag(relVel) > VSMALL)
@@ -514,6 +526,7 @@ void Foam::fv::axialFlowTurbineALSource::calcEndEffects()
                 scalar relVelRotorPlane = rotorPlaneDir & relVel;
                 phi = atan2(relVelRotorPlane, relVelOpElementVel);
             }
+            Info<< "phi: " << phi << endl;
             if (debug)
             {
                 scalar phiDeg = Foam::radToDeg(phi);
@@ -685,17 +698,77 @@ void Foam::fv::axialFlowTurbineALSource::yaw(scalar radians)
 }
 
 
+void Foam::fv::axialFlowTurbineALSource::floaterUpdate()
+{
+    // If harmonic floater motion is active, move the actuator line accordingly
+    if (harmonicFloaterActive_)
+    {
+        forAll(blades_, i)
+        {
+            blades_[i].harmonicFloaterMotion();
+        }
+        if (hasHub_)
+        {
+            hub_->harmonicFloaterMotion();
+        }
+        if (hasTower_)
+        {
+            tower_->harmonicFloaterMotion();
+        }
+
+        // Access orientation values from actuator line
+        // All blades from the same turbine have same
+        // orientation, just acces first blade
+        orientation_ = blades_[0].orientation();
+        prevOrientation_ = blades_[0].prevOrientation();
+        tensor totalRotMatrix = orientation_ & prevOrientation_.T();
+
+        // Update rotation axis
+        axis_ = totalRotMatrix & axis_;
+
+        // Update origin by moving it by the current 
+        // applied floater translation
+        origin_ += blades_[0].floaterTranslation();
+    }
+}
+
+void Foam::fv::axialFlowTurbineALSource::floaterUpdateVel()
+{
+    // Account for rotation velocity
+    if (harmonicFloaterActive_)
+    {
+        forAll(blades_, i)
+        {
+            blades_[i].floaterRotVelocity();
+        }
+        if (hasHub_)
+        {
+            hub_->floaterRotVelocity();
+        }
+        if (hasTower_)
+        {
+            tower_->floaterRotVelocity();
+        }
+    }
+}
+
 void Foam::fv::axialFlowTurbineALSource::addSup
 (
     fvMatrix<vector>& eqn,
     const label fieldI
 )
 {
+    // Acount for floating motion and update _axis
+    floaterUpdate();
+
     // Rotate the turbine if time value has changed
     if (time_.value() != lastRotationTime_)
     {
         rotate();
     }
+
+    // Acount for induced velocities by floater angular speed
+    floaterUpdateVel();
 
     // Zero out force vector and field
     forceField_ *= dimensionedScalar("zero", forceField_.dimensions(), 0.0);
@@ -777,18 +850,6 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     }
 }
 
-void Foam::fv::axialFlowTurbineALSource::floaterUpdate()
-{
-    // Access orientation values from actuator line
-    // All blades from the same turbine have same
-    // orientation, just acces first blade
-    orientation_ = blades_[0].orientation_();
-    prevOrientation_ = blades_[0].prevOrientation_();
-    tensor totalRotMatrix = orientation_ & prevOrientation_.T();
-
-    // Update rotation axis
-    axis_ = totalRotMatrix & axis_;
-}
 
 void Foam::fv::axialFlowTurbineALSource::addSup
 (
@@ -797,11 +858,17 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     const label fieldI
 )
 {
+    // Acount for floating motion and update _axis
+    floaterUpdate();
+
     // Rotate the turbine if time value has changed
     if (time_.value() != lastRotationTime_)
     {
         rotate();
     }
+
+    // Acount for induced velocities by floater angular speed
+    floaterUpdateVel();
 
     // Zero out force vector and field
     forceField_ *= dimensionedScalar("zero", forceField_.dimensions(), 0.0);
@@ -892,12 +959,18 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     const label fieldI
 )
 {
+    // Acount for floating motion and update _axis
+    floaterUpdate();
+
     // Rotate the turbine if time value has changed
     if (time_.value() != lastRotationTime_)
     {
         rotate();
     }
 
+    // Acount for induced velocities by floater angular speed
+    floaterUpdateVel();
+    
     if (endEffectsActive_ and endEffectsModel_ != "liftingLine")
     {
         // Calculate end effects based on current velocity field

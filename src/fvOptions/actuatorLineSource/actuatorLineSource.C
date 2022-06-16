@@ -67,10 +67,13 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         coeffs_.lookup("freeStreamVelocity") >> freeStreamVelocity_;
         freeStreamDirection_ = freeStreamVelocity_/mag(freeStreamVelocity_);
         endEffectsActive_ = coeffs_.lookupOrDefault("endEffects", false);
-           
+        
+        // Is the actuatorLineSource dictionary created from turbineALsource?
+        isTurbine_ = coeffs_.lookupOrDefault("isTurbine", false);
+
         // Multi-phase parameters, if present
         multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
-        if(multiPhase)
+        if(multiPhase_)
         {
             coeffs_.lookup("phaseName") >> phaseName_;
         }
@@ -94,8 +97,9 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         harmonicRotAmp_ *= M_PI / 180; // Transform deg into rad     
         harmonicRotFreq_*= 2*M_PI; // Transform Hz into rad/s      
         rot0_ *= M_PI / 180; // Transform deg into rad  
-        prevOrientation_ = rotAngles2Matrix(rot0_);
-
+        orientation_ = rotAngles2Matrix(rot0_);
+        prevOrientation_ = orientation_;
+        prevRotCenter_ = rotCenter_;
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
         (
@@ -525,8 +529,13 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
     // If time has changed, move the actuator line according to harmonic floater motion
     if (t != lastMotionTime_)
     {
-        vector translation, rotation, velocity, omega;
         scalar dt = mesh_.time().deltaT().value();
+
+        // Update previous rotation.
+        prevOrientation_ = orientation_;
+
+        // Compute current orientation
+        vector translation, rotation, velocity, omega;
         forAll(translation, i)
         {
             translation[i] = harmonicTraAmp_[i] * (sin(harmonicTraFreq_[i]*t)
@@ -542,10 +551,10 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
         
         // omega is given in floater (F) frame and thus
         // has to be transformed into inertial (I)
-        omega = orientation_.T() & omega;
+        floaterOmega_ = orientation_.T() & omega;
 
         // Move the actuator line according to the computed values
-        floaterMove(translation, velocity, omega);
+        floaterMove(translation, velocity);
         lastMotionTime_ = t;
     }
 }
@@ -702,8 +711,7 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
 void Foam::fv::actuatorLineSource::floaterMove
 (
     const vector &translation,
-    const vector &velocity,
-    const vector &omega
+    const vector &velocity
 )
 {
     // Total rotation matrix: 
@@ -711,9 +719,6 @@ void Foam::fv::actuatorLineSource::floaterMove
     // and rotate again with rotMatrix
     // R = Rn * R(n-1)^T
     tensor totalRotMatrix = orientation_ & prevOrientation_.T();
-
-    // Update current orientation
-    orientation_ = prevOrientation_;
 
     // Execute rotation routine only if rotation
     // angle is not zero. From the formula:
@@ -728,7 +733,7 @@ void Foam::fv::actuatorLineSource::floaterMove
         if(debug)
         {
             Info<< "Accounting for floating motion... " << endl;
-            Info<< "Actuator line rotation matrix: " << rotMatrix << endl;
+            Info<< "Actuator line rotation matrix: " << orientation_ << endl;
             Info<< "Rotation center: " << rotCenter_ << endl;
         }
     }
@@ -737,23 +742,28 @@ void Foam::fv::actuatorLineSource::floaterMove
     translate(translation);
     
     // Update rotation center
+    prevRotCenter_ = rotCenter_;
     rotCenter_ += translation;
 
     // Set floater velocity
     setFloaterVelocity(velocity);
 
-    // Add velocity due to omega
-    scalar omegaNorm = mag(omega);
-    if (omegaNorm > SMALL)
-    {
-        // Rotation vector is given by the angular speed
-        vector omegaAxis = omega / omegaNorm;
-        addFloaterOmega(rotCenter_, omegaAxis, omegaNorm);
-    }
-
     if(debug)
     {
         Info<< "Translating: " << translation << " [m]" << endl; 
+    }
+}
+
+
+void Foam::fv::actuatorLineSource::floaterRotVelocity()
+{
+    // Add velocity due to omega
+    scalar omegaNorm = mag(floaterOmega_);
+    if (omegaNorm > SMALL)
+    {
+        // Rotation vector is given by the angular speed
+        vector omegaAxis = floaterOmega_ / omegaNorm;
+        addFloaterOmega(rotCenter_, omegaAxis, omegaNorm);
     }
 }
 
@@ -946,6 +956,13 @@ const Foam::tensor& Foam::fv::actuatorLineSource::prevOrientation()
 }
 
 
+const Foam::vector Foam::fv::actuatorLineSource::floaterTranslation()
+{
+    vector translation = rotCenter_ - prevRotCenter_;
+    return translation;
+}
+
+
 Foam::vector Foam::fv::actuatorLineSource::moment(vector point)
 {
     vector moment(vector::zero);
@@ -977,9 +994,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
-    if (harmonicFloaterActive_)
+    // Only if the actuator line is not created from turbineALSource, otherwise 
+    // the floating motion is performed in the corresponding class.
+    if (harmonicFloaterActive_ && !isTurbine_)
     {
         harmonicFloaterMotion();
+        floaterRotVelocity();
     }
 
     // Zero out force field
@@ -1027,9 +1047,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
-    if (harmonicFloaterActive_)
+    // Only if the actuator line is not created from turbineALSource, otherwise 
+    // the floating motion is performed in the corresponding class.
+    if (harmonicFloaterActive_ && !isTurbine_)
     {
         harmonicFloaterMotion();
+        floaterRotVelocity();
     }
 
     const volVectorField& U = mesh_.lookupObject<volVectorField>("U");
@@ -1059,9 +1082,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
-    if (harmonicFloaterActive_)
+    // Only if the actuator line is not created from turbineALSource, otherwise 
+    // the floating motion is performed in the corresponding class.
+    if (harmonicFloaterActive_ && !isTurbine_)
     {
         harmonicFloaterMotion();
+        floaterRotVelocity();
     }
 
     // Zero out force field
