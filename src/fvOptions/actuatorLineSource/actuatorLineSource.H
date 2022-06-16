@@ -165,9 +165,6 @@ protected:
         //- Floater's orientation at previous time as a zy'x'' rotation Matrix
         tensor prevOrientation_;
 
-        //- Floater instantaneous angular velocity
-        vector floaterOmega_;
-
     // Protected Member Functions
 
         //- Create actuator line elements
@@ -258,10 +255,7 @@ public:
             void pitch(scalar radians, scalar chordFraction);
 
             //- Move the actuator line according to the floater motion. Account for translation velocity.
-            void floaterMove(const vector &translation, const vector &velocity);
-
-            //- Account for the floater-induced angular velocities at the blades
-            void floaterRotVelocity();
+            void floaterMove(const vector &translation, const vector &velocity, const vector &omega);
 
             //- Return the intrinsic rotation matrix (zy'x'') given the roll-pitch-yaw angles
             tensor rotAngles2Matrix(const vector &rotAngles);

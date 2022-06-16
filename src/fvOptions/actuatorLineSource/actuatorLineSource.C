@@ -551,10 +551,10 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
         
         // omega is given in floater (F) frame and thus
         // has to be transformed into inertial (I)
-        floaterOmega_ = orientation_.T() & omega;
+        omega = orientation_.T() & omega;
 
         // Move the actuator line according to the computed values
-        floaterMove(translation, velocity);
+        floaterMove(translation, velocity, omega);
         lastMotionTime_ = t;
     }
 }
@@ -711,7 +711,8 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
 void Foam::fv::actuatorLineSource::floaterMove
 (
     const vector &translation,
-    const vector &velocity
+    const vector &velocity,
+    const vector &omega
 )
 {
     // Total rotation matrix: 
@@ -752,19 +753,16 @@ void Foam::fv::actuatorLineSource::floaterMove
     {
         Info<< "Translating: " << translation << " [m]" << endl; 
     }
-}
 
-
-void Foam::fv::actuatorLineSource::floaterRotVelocity()
-{
     // Add velocity due to omega
-    scalar omegaNorm = mag(floaterOmega_);
+    scalar omegaNorm = mag(omega);
     if (omegaNorm > SMALL)
     {
         // Rotation vector is given by the angular speed
-        vector omegaAxis = floaterOmega_ / omegaNorm;
+        vector omegaAxis = omega / omegaNorm;
         addFloaterOmega(rotCenter_, omegaAxis, omegaNorm);
     }
+    
 }
 
 
@@ -999,7 +997,6 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
     if (harmonicFloaterActive_ && !isTurbine_)
     {
         harmonicFloaterMotion();
-        floaterRotVelocity();
     }
 
     // Zero out force field
@@ -1052,7 +1049,6 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
     if (harmonicFloaterActive_ && !isTurbine_)
     {
         harmonicFloaterMotion();
-        floaterRotVelocity();
     }
 
     const volVectorField& U = mesh_.lookupObject<volVectorField>("U");
@@ -1087,7 +1083,6 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     if (harmonicFloaterActive_ && !isTurbine_)
     {
         harmonicFloaterMotion();
-        floaterRotVelocity();
     }
 
     // Zero out force field

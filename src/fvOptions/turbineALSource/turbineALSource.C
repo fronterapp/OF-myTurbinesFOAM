@@ -171,10 +171,6 @@ void Foam::fv::turbineALSource::floaterUpdate()
     // Should be defined for each turbine type
 }
 
-void Foam::fv::turbineALSource::floaterUpdateVel()
-{
-    // Should be defined for each turbine type
-}
 
 void Foam::fv::turbineALSource::printPerf()
 {

@@ -514,7 +514,7 @@ void Foam::fv::axialFlowTurbineALSource::calcEndEffects()
                 Info<< "    rootDist: " << rootDist << endl;
                 Info<< "    relVel: " << relVel << endl;
             }
-            Info<< "    end effects, elementVel: " << elementVel << endl;
+            //Info<< "    end effects, elementVel: " << elementVel << endl;
             // Calculate angle between rotor plane and relative velocity
             scalar phi = pi/2.0;
             if (mag(relVel) > VSMALL)
@@ -526,7 +526,7 @@ void Foam::fv::axialFlowTurbineALSource::calcEndEffects()
                 scalar relVelRotorPlane = rotorPlaneDir & relVel;
                 phi = atan2(relVelRotorPlane, relVelOpElementVel);
             }
-            Info<< "phi: " << phi << endl;
+            //Info<< "phi: " << phi << endl;
             if (debug)
             {
                 scalar phiDeg = Foam::radToDeg(phi);
@@ -732,25 +732,6 @@ void Foam::fv::axialFlowTurbineALSource::floaterUpdate()
     }
 }
 
-void Foam::fv::axialFlowTurbineALSource::floaterUpdateVel()
-{
-    // Account for rotation velocity
-    if (harmonicFloaterActive_)
-    {
-        forAll(blades_, i)
-        {
-            blades_[i].floaterRotVelocity();
-        }
-        if (hasHub_)
-        {
-            hub_->floaterRotVelocity();
-        }
-        if (hasTower_)
-        {
-            tower_->floaterRotVelocity();
-        }
-    }
-}
 
 void Foam::fv::axialFlowTurbineALSource::addSup
 (
@@ -758,17 +739,14 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     const label fieldI
 )
 {
-    // Acount for floating motion and update _axis
-    floaterUpdate();
-
     // Rotate the turbine if time value has changed
     if (time_.value() != lastRotationTime_)
     {
         rotate();
     }
-
-    // Acount for induced velocities by floater angular speed
-    floaterUpdateVel();
+    
+    // Acount for floating motion and update _axis
+    floaterUpdate();
 
     // Zero out force vector and field
     forceField_ *= dimensionedScalar("zero", forceField_.dimensions(), 0.0);
@@ -858,17 +836,14 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     const label fieldI
 )
 {
-    // Acount for floating motion and update _axis
-    floaterUpdate();
-
     // Rotate the turbine if time value has changed
     if (time_.value() != lastRotationTime_)
     {
         rotate();
     }
-
-    // Acount for induced velocities by floater angular speed
-    floaterUpdateVel();
+    
+    // Acount for floating motion and update _axis
+    floaterUpdate();
 
     // Zero out force vector and field
     forceField_ *= dimensionedScalar("zero", forceField_.dimensions(), 0.0);
@@ -959,18 +934,15 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     const label fieldI
 )
 {
-    // Acount for floating motion and update _axis
-    floaterUpdate();
-
     // Rotate the turbine if time value has changed
     if (time_.value() != lastRotationTime_)
     {
         rotate();
     }
-
-    // Acount for induced velocities by floater angular speed
-    floaterUpdateVel();
     
+    // Acount for floating motion and update _axis
+    floaterUpdate();
+
     if (endEffectsActive_ and endEffectsModel_ != "liftingLine")
     {
         // Calculate end effects based on current velocity field

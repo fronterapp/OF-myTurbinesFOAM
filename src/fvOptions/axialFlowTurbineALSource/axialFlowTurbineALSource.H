@@ -138,9 +138,6 @@ protected:
         //- Update turbine orientation according to floater motion
         virtual void floaterUpdate();
 
-        //- Update velocity due to floater angular rotation
-        virtual void floaterUpdateVel();
-
 public:
 
     //- Runtime type information
