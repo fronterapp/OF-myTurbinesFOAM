@@ -234,8 +234,14 @@ public:
             //- Return const reference to the previous orientation
             const tensor& prevOrientation();
 
-            //- Return const floater translation at current timestep
+            //- Return floater translation at current timestep
             const vector floaterTranslation();
+
+            //- Return const reference to the current rotation center
+            const vector& rotCenter();
+
+            //- Return const reference to the previous rotation center
+            const vector& prevRotCenter();
 
         // Edit
 
@@ -287,6 +293,9 @@ public:
 
              //- Execute harmonic floating motion for a single time step
             void harmonicFloaterMotion();
+
+            //- Rotate floater according to initial orientation
+            void floaterInitialise();
             
         // Evaluation
 

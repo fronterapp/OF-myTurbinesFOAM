@@ -98,7 +98,7 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         harmonicRotFreq_*= 2*M_PI; // Transform Hz into rad/s      
         rot0_ *= M_PI / 180; // Transform deg into rad  
         orientation_ = rotAngles2Matrix(rot0_);
-        prevOrientation_ = orientation_;
+        prevOrientation_ = rotAngles2Matrix(vector::zero);
         prevRotCenter_ = rotCenter_;
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
@@ -596,6 +596,7 @@ Foam::fv::actuatorLineSource::actuatorLineSource
 {
     read(dict_);
     createElements();
+    floaterInitialise();
     if (writePerf_)
     {
         createOutputFile();
@@ -707,6 +708,35 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
     }
 }
 
+void Foam::fv::actuatorLineSource::floaterInitialise()
+{
+    if(harmonicFloaterActive_)
+    {
+        // Total rotation matrix: 
+        // go back to unrotated orientation 
+        // and rotate again with rotMatrix
+        // R = Rn * R(n-1)^T
+        tensor totalRotMatrix = orientation_ & prevOrientation_.T();
+
+        // Execute rotation routine only if rotation
+        // angle is not zero. From the formula:
+        // tr(R) = 1 + 2cos(angle)
+        // angle==0 if tr(R) ==3
+        if(!equal(tr(totalRotMatrix), scalar(3.0)))
+        {
+            // Perform rotation wrt the rotation center
+            // from the previous timestep
+            // R * ( x_(n-1) - c_(n-1) )
+            rotate(rotCenter_, totalRotMatrix);
+            if(debug)
+            {
+                Info<< "Accounting for floating motion... " << endl;
+                Info<< "Actuator line rotation matrix: " << orientation_ << endl;
+                Info<< "Rotation center: " << rotCenter_ << endl;
+            }
+        }
+    }
+}
 
 void Foam::fv::actuatorLineSource::floaterMove
 (
@@ -951,6 +981,18 @@ const Foam::tensor& Foam::fv::actuatorLineSource::orientation()
 const Foam::tensor& Foam::fv::actuatorLineSource::prevOrientation()
 {
     return prevOrientation_;
+}
+
+
+const Foam::vector& Foam::fv::actuatorLineSource::rotCenter()
+{
+    return rotCenter_;
+}
+
+
+const Foam::vector& Foam::fv::actuatorLineSource::prevRotCenter()
+{
+    return prevRotCenter_;
 }
 
 

@@ -637,6 +637,9 @@ Foam::fv::axialFlowTurbineALSource::axialFlowTurbineALSource
     scalar yawAngle = coeffs_.lookupOrDefault("yawAngle", 0.0);
     yaw(degToRad(yawAngle));
 
+    // Initialise turbine orientation if specified
+    floaterInitialise();
+
     if (debug)
     {
         Info<< "axialFlowTurbineALSource created at time = " << time_.value()
@@ -726,9 +729,42 @@ void Foam::fv::axialFlowTurbineALSource::floaterUpdate()
         // Update rotation axis
         axis_ = totalRotMatrix & axis_;
 
-        // Update origin by moving it by the current 
-        // applied floater translation
+        // Rotate origin according to body motion
+        // Rotation performed along rot center
+        vector prevRotCenter = blades_[0].prevRotCenter();
+        origin_ -= prevRotCenter;
+        origin_ = totalRotMatrix & origin_;
+        origin_ += prevRotCenter;
+
+        // Update origin by moving it by the 
+        // current floater translation
         origin_ += blades_[0].floaterTranslation();
+    }
+}
+
+
+void Foam::fv::axialFlowTurbineALSource::floaterInitialise()
+{
+    // If harmonic floater motion is active, initialise 
+    // axis and origin accordingly
+    if (harmonicFloaterActive_)
+    {
+    // Access orientation values from actuator line
+    // All blades from the same turbine have same
+    // orientation, just acces first blade
+    orientation_ = blades_[0].orientation();
+    prevOrientation_ = blades_[0].prevOrientation();
+    tensor totalRotMatrix = orientation_ & prevOrientation_.T();
+
+    // Update rotation axis
+    axis_ = totalRotMatrix & axis_;
+
+    // Rotate origin according to body motion
+    // Rotation performed along prevRotCenter
+    vector prevRotCenter = blades_[0].prevRotCenter();
+    origin_ -= prevRotCenter;
+    origin_ = totalRotMatrix & origin_;
+    origin_ += prevRotCenter;
     }
 }
 

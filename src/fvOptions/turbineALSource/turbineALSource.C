@@ -172,6 +172,12 @@ void Foam::fv::turbineALSource::floaterUpdate()
 }
 
 
+void Foam::fv::turbineALSource::floaterInitialise()
+{
+    // Should be defined for each turbine type
+}
+
+
 void Foam::fv::turbineALSource::printPerf()
 {
     Info<< "Azimuthal angle (degrees) of " << name_ << ": " << angleDeg_
