@@ -151,7 +151,7 @@ void Foam::fv::axialFlowTurbineALSource::createBlades()
             elementGeometry[j][3].setSize(3); //Chord direction
             elementGeometry[j][4].setSize(1); //Chord mount
             elementGeometry[j][5].setSize(1); //Pitch (twist)
-
+            
             // Create geometry point for AL source at origin
             vector point = origin_;
             // Move point along axial direction
@@ -185,12 +185,12 @@ void Foam::fv::axialFlowTurbineALSource::createBlades()
 
             // Set chord reference direction
             vector chordDirection = azimuthalDirection_;
-
             // Set span directions for AL source
             // Blades start oriented vertically
             // Use planform normal to figure out span direction
             vector planformNormal = freeStreamDirection_;
             vector spanDirection = chordDirection ^ planformNormal;
+
             spanDirection /= mag(spanDirection);
 
             // Rotate span and chord directions according to azimuth
@@ -421,7 +421,9 @@ void Foam::fv::axialFlowTurbineALSource::createTower()
         point += axialDistance*axis_;
         // Move along tower axis according to height
         point += height*towerAxis;
-
+        Info<< "Tower " << j << " x: " << point.x() << endl;
+        Info<< "Tower " << j << " y: " << point.y() << endl;
+        Info<< "Tower " << j << " z: " << point.z() << endl;
         elementGeometry[j][0][0] = point.x(); // x location of geom point
         elementGeometry[j][0][1] = point.y(); // y location of geom point
         elementGeometry[j][0][2] = point.z(); // z location of geom point
