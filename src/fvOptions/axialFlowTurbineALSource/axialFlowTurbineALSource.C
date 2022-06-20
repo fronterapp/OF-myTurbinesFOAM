@@ -255,11 +255,6 @@ void Foam::fv::axialFlowTurbineALSource::createBlades()
         // Add harmonic floating motion data
         bladeSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
 
-        // The actuator line is indeed created by turbineALSource
-        bladeSubDict.add("isTurbine", true);
-
-        // The actuatorLine is indeed created by turbinealsource
-
         dictionary dict;
         dict.add("actuatorLineSourceCoeffs", bladeSubDict);
         dict.add("type", "actuatorLineSource");
@@ -366,9 +361,6 @@ void Foam::fv::axialFlowTurbineALSource::createHub()
     // Add harmonic floating motion data
     hubSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
 
-    // The actuator line is indeed created by turbineALSource
-    hubSubDict.add("isTurbine", true);
-
     dictionary dict;
     dict.add("actuatorLineSourceCoeffs", hubSubDict);
     dict.add("type", "actuatorLineSource");
@@ -469,9 +461,6 @@ void Foam::fv::axialFlowTurbineALSource::createTower()
 
     // Add harmonic floating motion data
     towerSubDict.add("harmonicFloaterMotion", harmonicFloaterDict_);
-
-    // The actuator line is indeed created by turbineALSource
-    towerSubDict.add("isTurbine", true);
 
     dictionary dict;
     dict.add("actuatorLineSourceCoeffs", towerSubDict);
@@ -705,39 +694,24 @@ void Foam::fv::axialFlowTurbineALSource::yaw(scalar radians)
 
 void Foam::fv::axialFlowTurbineALSource::floaterUpdate()
 {
-    // If harmonic floater motion is active, move the actuator line accordingly
+    // If harmonic floater motion is active, update turbine axis
+    // and origin accordingly
     if (harmonicFloaterActive_)
     {
-        forAll(blades_, i)
-        {
-            blades_[i].harmonicFloaterMotion();
-        }
-        if (hasHub_)
-        {
-            hub_->harmonicFloaterMotion();
-        }
-        if (hasTower_)
-        {
-            tower_->harmonicFloaterMotion();
-        }
-
         // Access orientation values from actuator line
         // All blades from the same turbine have same
         // orientation, just acces first blade
         orientation_ = blades_[0].orientation();
         prevOrientation_ = blades_[0].prevOrientation();
-        tensor totalRotMatrix = orientation_ & prevOrientation_.T();
-
+        tensor totalRotMatrix = orientation_ & prevOrientation_.T();    
         // Update rotation axis
-        axis_ = totalRotMatrix & axis_;
-
+        axis_ = totalRotMatrix & axis_; 
         // Rotate origin according to body motion
         // Rotation performed along rot center
         vector prevRotCenter = blades_[0].prevRotCenter();
         origin_ -= prevRotCenter;
         origin_ = totalRotMatrix & origin_;
-        origin_ += prevRotCenter;
-
+        origin_ += prevRotCenter;   
         // Update origin by moving it by the 
         // current floater translation
         origin_ += blades_[0].floaterTranslation();
@@ -782,9 +756,6 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     {
         rotate();
     }
-    
-    // Acount for floating motion and update _axis
-    floaterUpdate();
 
     // Zero out force vector and field
     forceField_ *= dimensionedScalar("zero", forceField_.dimensions(), 0.0);
@@ -846,6 +817,9 @@ void Foam::fv::axialFlowTurbineALSource::addSup
         }
     }
 
+    // Acount for floating motion (update axis and origin)
+    floaterUpdate();
+
     // Torque is the projection of the moment from all blades on the axis
     torque_ = moment & axis_;
 
@@ -879,9 +853,6 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     {
         rotate();
     }
-    
-    // Acount for floating motion and update _axis
-    floaterUpdate();
 
     // Zero out force vector and field
     forceField_ *= dimensionedScalar("zero", forceField_.dimensions(), 0.0);
@@ -943,6 +914,9 @@ void Foam::fv::axialFlowTurbineALSource::addSup
         }
     }
 
+    // Acount for floating motion (update axis and origin)
+    floaterUpdate();
+
     // Torque is the projection of the moment from all blades on the axis
     torque_ = moment & axis_;
 
@@ -977,9 +951,6 @@ void Foam::fv::axialFlowTurbineALSource::addSup
     {
         rotate();
     }
-    
-    // Acount for floating motion and update _axis
-    floaterUpdate();
 
     if (endEffectsActive_ and endEffectsModel_ != "liftingLine")
     {
@@ -1010,6 +981,9 @@ void Foam::fv::axialFlowTurbineALSource::addSup
         // Add source for nacelle actuator line
         nacelle_->addSup(eqn, fieldI);
     }
+
+    // Acount for floating motion (update axis and origin)
+    floaterUpdate();
 }
 
 

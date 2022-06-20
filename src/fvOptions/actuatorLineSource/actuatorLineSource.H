@@ -126,9 +126,6 @@ protected:
         //- Name of the phase which properties are to be used
         word phaseName_;
 
-        //- Is the actuator line created by actuatorALSource?
-        bool isTurbine_;
-
         //- Switch for harmonic floater motion
         bool harmonicFloaterActive_;
 

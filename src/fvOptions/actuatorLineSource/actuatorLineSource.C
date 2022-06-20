@@ -67,9 +67,6 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         coeffs_.lookup("freeStreamVelocity") >> freeStreamVelocity_;
         freeStreamDirection_ = freeStreamVelocity_/mag(freeStreamVelocity_);
         endEffectsActive_ = coeffs_.lookupOrDefault("endEffects", false);
-        
-        // Is the actuatorLineSource dictionary created from turbineALsource?
-        isTurbine_ = coeffs_.lookupOrDefault("isTurbine", false);
 
         // Multi-phase parameters, if present
         multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
@@ -1034,9 +1031,7 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
-    // Only if the actuator line is not created from turbineALSource, otherwise 
-    // the floating motion is performed in the corresponding class.
-    if (harmonicFloaterActive_ && !isTurbine_)
+    if (harmonicFloaterActive_)
     {
         harmonicFloaterMotion();
     }
@@ -1086,9 +1081,7 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
-    // Only if the actuator line is not created from turbineALSource, otherwise 
-    // the floating motion is performed in the corresponding class.
-    if (harmonicFloaterActive_ && !isTurbine_)
+    if (harmonicFloaterActive_)
     {
         harmonicFloaterMotion();
     }
@@ -1120,9 +1113,7 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     }
 
     // If harmonic floater motion is active, move the actuator line accordingly
-    // Only if the actuator line is not created from turbineALSource, otherwise 
-    // the floating motion is performed in the corresponding class.
-    if (harmonicFloaterActive_ && !isTurbine_)
+    if (harmonicFloaterActive_)
     {
         harmonicFloaterMotion();
     }
