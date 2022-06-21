@@ -152,6 +152,20 @@ protected:
         //- Individual blade moments about turbine origin
         List<vector> bladeMoments_;
 
+        //- Switch for multiphase simulations
+        bool multiPhase_;
+
+        //- Harmonic floating motion dictionary
+        dictionary harmonicFloaterDict_;
+
+        //- Switch for harmonic floater motion
+        bool harmonicFloaterActive_;
+
+        //- Floater's current orientation as a zy'x'' rotation Matrix
+        tensor orientation_;
+
+        //- Floater's previous orientation as a zy'x'' rotation Matrix
+        tensor prevOrientation_;
 
     // Protected Member Functions
 
@@ -182,7 +196,12 @@ protected:
         //- Print performance
         virtual void printPerf();
 
+        //- Update turbine orientation according to floater motion
+        virtual void floaterUpdate();
 
+        //- Initialise axis orientation according to initial floater orientation
+        virtual void floaterInitialise();
+        
 public:
 
     //- Runtime type information

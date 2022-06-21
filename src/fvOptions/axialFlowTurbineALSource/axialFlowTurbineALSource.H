@@ -135,6 +135,11 @@ protected:
         //- Yaw the turbine, i.e., rotate about vertical axis
         void yaw(scalar radians);
 
+        //- Update turbine orientation according to floater motion
+        virtual void floaterUpdate();
+
+        //- Initialise axis orientation according to initial floater orientation
+        virtual void floaterInitialise();
 
 public:
 

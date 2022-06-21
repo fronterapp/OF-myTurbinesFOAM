@@ -67,10 +67,13 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         coeffs_.lookup("freeStreamVelocity") >> freeStreamVelocity_;
         freeStreamDirection_ = freeStreamVelocity_/mag(freeStreamVelocity_);
         endEffectsActive_ = coeffs_.lookupOrDefault("endEffects", false);
-           
+
         // Multi-phase parameters, if present
         multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
-        coeffs_.lookup("phaseName") >> phaseName_;
+        if(multiPhase_)
+        {
+            coeffs_.lookup("phaseName") >> phaseName_;
+        }
 
         // Read harmonic pitching parameters if present
         dictionary pitchDict = coeffs_.subOrEmptyDict("harmonicPitching");
@@ -92,7 +95,8 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         harmonicRotFreq_*= 2*M_PI; // Transform Hz into rad/s      
         rot0_ *= M_PI / 180; // Transform deg into rad  
         orientation_ = rotAngles2Matrix(rot0_);
-
+        prevOrientation_ = rotAngles2Matrix(vector::zero);
+        prevRotCenter_ = rotCenter_;
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
         (
@@ -522,8 +526,13 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
     // If time has changed, move the actuator line according to harmonic floater motion
     if (t != lastMotionTime_)
     {
-        vector translation, rotation, velocity, omega;
         scalar dt = mesh_.time().deltaT().value();
+
+        // Update previous rotation.
+        prevOrientation_ = orientation_;
+
+        // Compute current orientation
+        vector translation, rotation, velocity, omega;
         forAll(translation, i)
         {
             translation[i] = harmonicTraAmp_[i] * (sin(harmonicTraFreq_[i]*t)
@@ -535,14 +544,14 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
                                 * cos(harmonicRotFreq_[i] * t);
         }
         // Rotation matrix: from inertial (I) to floater (F) frame
-        tensor rotMatrix = rotAngles2Matrix(rotation);
+        orientation_ = rotAngles2Matrix(rotation);
         
         // omega is given in floater (F) frame and thus
         // has to be transformed into inertial (I)
-        omega = rotMatrix.T() & omega;
+        omega = orientation_.T() & omega;
 
         // Move the actuator line according to the computed values
-        floaterMove(translation, rotMatrix, velocity, omega);
+        floaterMove(translation, velocity, omega);
         lastMotionTime_ = t;
     }
 }
@@ -584,6 +593,7 @@ Foam::fv::actuatorLineSource::actuatorLineSource
 {
     read(dict_);
     createElements();
+    floaterInitialise();
     if (writePerf_)
     {
         createOutputFile();
@@ -695,11 +705,39 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
     }
 }
 
+void Foam::fv::actuatorLineSource::floaterInitialise()
+{
+    if(harmonicFloaterActive_)
+    {
+        // Total rotation matrix: 
+        // go back to unrotated orientation 
+        // and rotate again with rotMatrix
+        // R = Rn * R(n-1)^T
+        tensor totalRotMatrix = orientation_ & prevOrientation_.T();
+
+        // Execute rotation routine only if rotation
+        // angle is not zero. From the formula:
+        // tr(R) = 1 + 2cos(angle)
+        // angle==0 if tr(R) ==3
+        if(!equal(tr(totalRotMatrix), scalar(3.0)))
+        {
+            // Perform rotation wrt the rotation center
+            // from the previous timestep
+            // R * ( x_(n-1) - c_(n-1) )
+            rotate(rotCenter_, totalRotMatrix);
+            if(debug)
+            {
+                Info<< "Accounting for floating motion... " << endl;
+                Info<< "Actuator line rotation matrix: " << orientation_ << endl;
+                Info<< "Rotation center: " << rotCenter_ << endl;
+            }
+        }
+    }
+}
 
 void Foam::fv::actuatorLineSource::floaterMove
 (
     const vector &translation,
-    const tensor &rotMatrix,
     const vector &velocity,
     const vector &omega
 )
@@ -708,10 +746,7 @@ void Foam::fv::actuatorLineSource::floaterMove
     // go back to unrotated orientation 
     // and rotate again with rotMatrix
     // R = Rn * R(n-1)^T
-    tensor totalRotMatrix = rotMatrix & orientation_.T();
-
-    // Update current orientation
-    orientation_ = rotMatrix;
+    tensor totalRotMatrix = orientation_ & prevOrientation_.T();
 
     // Execute rotation routine only if rotation
     // angle is not zero. From the formula:
@@ -726,7 +761,7 @@ void Foam::fv::actuatorLineSource::floaterMove
         if(debug)
         {
             Info<< "Accounting for floating motion... " << endl;
-            Info<< "Actuator line rotation matrix: " << rotMatrix << endl;
+            Info<< "Actuator line rotation matrix: " << orientation_ << endl;
             Info<< "Rotation center: " << rotCenter_ << endl;
         }
     }
@@ -735,10 +770,16 @@ void Foam::fv::actuatorLineSource::floaterMove
     translate(translation);
     
     // Update rotation center
+    prevRotCenter_ = rotCenter_;
     rotCenter_ += translation;
 
     // Set floater velocity
     setFloaterVelocity(velocity);
+
+    if(debug)
+    {
+        Info<< "Translating: " << translation << " [m]" << endl; 
+    }
 
     // Add velocity due to omega
     scalar omegaNorm = mag(omega);
@@ -748,11 +789,7 @@ void Foam::fv::actuatorLineSource::floaterMove
         vector omegaAxis = omega / omegaNorm;
         addFloaterOmega(rotCenter_, omegaAxis, omegaNorm);
     }
-
-    if(debug)
-    {
-        Info<< "Translating: " << translation << " [m]" << endl; 
-    }
+    
 }
 
 
@@ -929,6 +966,37 @@ const Foam::volVectorField& Foam::fv::actuatorLineSource::forceField()
 PtrList<Foam::fv::actuatorLineElement>& Foam::fv::actuatorLineSource::elements()
 {
     return elements_;
+}
+
+
+const Foam::tensor& Foam::fv::actuatorLineSource::orientation()
+{
+    return orientation_;
+}
+
+
+const Foam::tensor& Foam::fv::actuatorLineSource::prevOrientation()
+{
+    return prevOrientation_;
+}
+
+
+const Foam::vector& Foam::fv::actuatorLineSource::rotCenter()
+{
+    return rotCenter_;
+}
+
+
+const Foam::vector& Foam::fv::actuatorLineSource::prevRotCenter()
+{
+    return prevRotCenter_;
+}
+
+
+const Foam::vector Foam::fv::actuatorLineSource::floaterTranslation()
+{
+    vector translation = rotCenter_ - prevRotCenter_;
+    return translation;
 }
 
 

@@ -150,11 +150,17 @@ protected:
         //- Floater's center of rotation
         vector rotCenter_;
 
+        //- Floater's center of rotation at previous time
+        vector prevRotCenter_;
+
         //- Floater's orientation at t=0
         vector rot0_;
 
         //- Floater's orientation as a zy'x'' rotation Matrix
         tensor orientation_;
+
+        //- Floater's orientation at previous time as a zy'x'' rotation Matrix
+        tensor prevOrientation_;
 
     // Protected Member Functions
 
@@ -175,9 +181,6 @@ protected:
 
         //- Execute harmonic pitching for a single time step
         void harmonicPitching();
-
-        //- Execute harmonic floating motion for a single time step
-        void harmonicFloaterMotion();
 
 public:
 
@@ -222,6 +225,20 @@ public:
             //- Return reference to element pointer list
             PtrList<actuatorLineElement>& elements();
 
+            //- Return const reference to the current orientation
+            const tensor& orientation();
+
+            //- Return const reference to the previous orientation
+            const tensor& prevOrientation();
+
+            //- Return floater translation at current timestep
+            const vector floaterTranslation();
+
+            //- Return const reference to the current rotation center
+            const vector& rotCenter();
+
+            //- Return const reference to the previous rotation center
+            const vector& prevRotCenter();
 
         // Edit
 
@@ -240,8 +257,8 @@ public:
             //- Pitch the blade about some fraction of the chord
             void pitch(scalar radians, scalar chordFraction);
 
-            //- Move the actuator line according to the floater motion
-            void floaterMove(const vector &translation, const tensor &rotMatrix, const vector &velocity, const vector &omega);
+            //- Move the actuator line according to the floater motion. Account for translation velocity.
+            void floaterMove(const vector &translation, const vector &velocity, const vector &omega);
 
             //- Return the intrinsic rotation matrix (zy'x'') given the roll-pitch-yaw angles
             tensor rotAngles2Matrix(const vector &rotAngles);
@@ -271,7 +288,12 @@ public:
             //  correction
             void setOmega(scalar omega);
 
+             //- Execute harmonic floating motion for a single time step
+            void harmonicFloaterMotion();
 
+            //- Rotate floater according to initial orientation
+            void floaterInitialise();
+            
         // Evaluation
 
             //- Compute the moment about a given point

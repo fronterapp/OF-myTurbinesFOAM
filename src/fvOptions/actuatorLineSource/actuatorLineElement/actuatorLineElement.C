@@ -690,11 +690,30 @@ Foam::scalar Foam::fv::actuatorLineElement::normalRefForce()
 Foam::scalar Foam::fv::actuatorLineElement::inflowRefAngle()
 {
     // Calculate inflow velocity angle in degrees (AFTAL Phi)
-    scalar inflowVelAngleRad = acos
-    (
-        (-relativeVelocity_ & chordRefDirection_)
-        / (mag(relativeVelocity_) * mag(chordRefDirection_))
-    );
+    scalar cosAngle = (-relativeVelocity_ & chordRefDirection_)
+        / (mag(relativeVelocity_) * mag(chordRefDirection_));
+
+    // Since cosAngle is computed from a float dot product,
+    // there is a change the result is greater than 1 or
+    // smaller than -1 by some small value, in such case
+    // the acos function will return nan(ind). 
+    // This actually happened... 
+    // Below there is a 'safe' implementation of arc cos
+    scalar inflowVelAngleRad;
+    
+    if (cosAngle<=-1.0)
+    {
+        inflowVelAngleRad = M_PI;
+    }
+    else if (cosAngle>=1.0)
+    {
+        inflowVelAngleRad = 0.0;
+    }
+    else
+    {
+        inflowVelAngleRad = acos(cosAngle);
+    }
+
     return radToDeg(inflowVelAngleRad);
 }
 
@@ -711,7 +730,6 @@ void Foam::fv::actuatorLineElement::calculateForce
 )
 {
     scalar pi = Foam::constant::mathematical::pi;
-
     // Calculate vector normal to chord--span plane
     planformNormal_ = -chordDirection_ ^ spanDirection_;
     planformNormal_ /= mag(planformNormal_);
