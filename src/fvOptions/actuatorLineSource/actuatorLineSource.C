@@ -557,6 +557,42 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
 }
 
 
+void Foam::fv::actuatorLineSource::readRigidBody(const fvMesh& mesh)
+{
+    dictionary rigidBodyDict;
+
+    bool existsRB = IOobject
+        (
+            "sixDoFRigidBodyMotionState",
+            mesh.time().timeName(),
+            "uniform",
+            mesh
+        ).typeHeaderOk<IOdictionary>(true);
+
+    if(existsRB)
+    {
+        rigidBodyDict = IOdictionary
+            (
+                IOobject
+                (
+                    "sixDoFRigidBodyMotionState",
+                    mesh.time().timeName(),
+                    "uniform",
+                    mesh,
+                    IOobject::READ_IF_PRESENT,
+                    IOobject::NO_WRITE,
+                    false
+                )
+            );
+    }
+    else
+    {
+        Info << "Rigid body dictionary (sixDoFRigidBodyMotionState) could not be accessed." << endl;
+        Info << "Floater motion based on rigid body is thus disabled." << endl;
+    }
+    
+}
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::fv::actuatorLineSource::actuatorLineSource
@@ -592,6 +628,7 @@ Foam::fv::actuatorLineSource::actuatorLineSource
     endEffectsActive_(false)
 {
     read(dict_);
+    readRigidBody(mesh);
     createElements();
     floaterInitialise();
     if (writePerf_)

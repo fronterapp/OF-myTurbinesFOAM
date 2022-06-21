@@ -182,6 +182,9 @@ protected:
         //- Execute harmonic pitching for a single time step
         void harmonicPitching();
 
+        //- Read rigid body dictionary
+        void readRigidBody(const fvMesh& mesh);
+
 public:
 
     //- Runtime type information
