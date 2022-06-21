@@ -144,8 +144,11 @@ protected:
         //- Frequency of floater rotation motion in Hz
         vector harmonicRotFreq_;
 
-        //- Phase shift of floater translation motion in deg
-        vector harmonicRotPhase_;
+        //- Switch for rigid body floater motion
+        bool rigidBodyFloaterActive_;
+
+        //- Dictionary from "sixDoFRigidBodyMotionState"
+        dictionary rigidBodyDict_;
 
         //- Floater's center of rotation
         vector rotCenter_;

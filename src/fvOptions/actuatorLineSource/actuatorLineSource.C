@@ -84,19 +84,39 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         // Read harmonic floater motion parameters if present
         dictionary harmonicFloaterDict = coeffs_.subOrEmptyDict("harmonicFloaterMotion");
         harmonicFloaterActive_ = harmonicFloaterDict.lookupOrDefault("active", false);
-        harmonicTraAmp_ = harmonicFloaterDict.lookupOrDefault("translationAmplitude", vector::zero);
-        harmonicTraFreq_ = harmonicFloaterDict.lookupOrDefault("translationFrequency", vector::zero);
-        harmonicRotAmp_ = harmonicFloaterDict.lookupOrDefault("rotationAmplitude", vector::zero);
-        harmonicRotFreq_ = harmonicFloaterDict.lookupOrDefault("rotationFrequency", vector::zero);
-        rotCenter_ = harmonicFloaterDict.lookupOrDefault("rotationCenter", vector::zero);
-        rot0_ = harmonicFloaterDict.lookupOrDefault("initialRotation", vector::zero);
-        harmonicTraFreq_*= 2*M_PI; // Transform Hz into rad/s
-        harmonicRotAmp_ *= M_PI / 180; // Transform deg into rad     
-        harmonicRotFreq_*= 2*M_PI; // Transform Hz into rad/s      
-        rot0_ *= M_PI / 180; // Transform deg into rad  
-        orientation_ = rotAngles2Matrix(rot0_);
-        prevOrientation_ = rotAngles2Matrix(vector::zero);
-        prevRotCenter_ = rotCenter_;
+        if (harmonicFloaterActive_)
+        {
+            harmonicTraAmp_ =   harmonicFloaterDict.lookupOrDefault("translationAmplitude", vector::zero);
+            harmonicTraFreq_ =  harmonicFloaterDict.lookupOrDefault("translationFrequency", vector::zero);
+            harmonicRotAmp_ =   harmonicFloaterDict.lookupOrDefault("rotationAmplitude", vector::zero);
+            harmonicRotFreq_ =  harmonicFloaterDict.lookupOrDefault("rotationFrequency", vector::zero);
+            rotCenter_ =        harmonicFloaterDict.lookupOrDefault("rotationCenter", vector::zero);
+            rot0_ =             harmonicFloaterDict.lookupOrDefault("initialRotation", vector::zero);
+
+            harmonicTraFreq_*=  2*M_PI; // Transform Hz into rad/s
+            harmonicRotAmp_ *=  M_PI / 180; // Transform deg into rad     
+            harmonicRotFreq_*=  2*M_PI; // Transform Hz into rad/s      
+            rot0_ *=            M_PI / 180; // Transform deg into rad  
+            
+            orientation_ =      rotAngles2Matrix(rot0_);
+            prevOrientation_ =  rotAngles2Matrix(vector::zero);
+            prevRotCenter_ =    rotCenter_;
+        }
+
+        // Read rigid body floater motion parameters if present
+        dictionary rigidBodyFloaterDict = coeffs_.subOrEmptyDict("rigidBodyFloaterMotion");
+        rigidBodyFloaterActive_ = harmonicFloaterDict.lookupOrDefault("active", false);
+
+        // Check whether rigid body and prescribed harmonic are both active
+        if(rigidBodyFloaterActive_ && harmonicFloaterActive_)
+        {
+            Info<< "Both 'harmonicFloaterMotion' and 'rigidBodyFloaterMotion' are set to active." <<
+            "Since only one type of floater motion is allowed, they will be disabled." << endl;
+            rigidBodyFloaterActive_ =   false;
+            harmonicFloaterActive_  =   false;
+        }
+
+
         // Read option for writing forceField
         bool writeForceField = coeffs_.lookupOrDefault
         (
@@ -559,38 +579,65 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
 
 void Foam::fv::actuatorLineSource::readRigidBody(const fvMesh& mesh)
 {
-    dictionary rigidBodyDict;
-
-    bool existsRB = IOobject
-        (
-            "sixDoFRigidBodyMotionState",
-            mesh.time().timeName(),
-            "uniform",
-            mesh
-        ).typeHeaderOk<IOdictionary>(true);
-
-    if(existsRB)
+    if(rigidBodyFloaterActive_)
     {
-        rigidBodyDict = IOdictionary
+        bool existsRB = IOobject
             (
-                IOobject
+                "sixDoFRigidBodyMotionState",
+                mesh.time().timeName(),
+                "uniform",
+                mesh
+            ).typeHeaderOk<IOdictionary>(true);
+
+        if(existsRB)
+        {
+            rigidBodyDict_ = IOdictionary
                 (
-                    "sixDoFRigidBodyMotionState",
-                    mesh.time().timeName(),
-                    "uniform",
-                    mesh,
-                    IOobject::READ_IF_PRESENT,
-                    IOobject::NO_WRITE,
-                    false
-                )
-            );
-    }
-    else
-    {
-        Info << "Rigid body dictionary (sixDoFRigidBodyMotionState) could not be accessed." << endl;
-        Info << "Floater motion based on rigid body is thus disabled." << endl;
-    }
-    
+                    IOobject
+                    (
+                        "sixDoFRigidBodyMotionState",
+                        mesh.time().timeName(),
+                        "uniform",
+                        mesh,
+                        IOobject::READ_IF_PRESENT,
+                        IOobject::NO_WRITE,
+                        false
+                    )
+                );
+            
+            rotCenter = rigidBodyDict_.lookup("centreOfRotation");
+            tensor Q = rigidBodyDict_.lookup("orientation");
+            orientation_ = Q.T();
+            prevOrientation_ = rotAngles2Matrix(vector::zero);
+            prevRotCenter_ = rotCenter_;
+        }
+        else
+        {
+            rigidBodyFloaterActive_ = false;
+            Info << "Rigid body dictionary (sixDoFRigidBodyMotionState) could not be accessed." << endl;
+            Info << "Floater motion based on rigid body is thus disabled." << endl;
+        }
+    }    
+}
+
+void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion()
+{
+    // Update previous values
+    prevOrientation_ = orientation_;
+    prevRotCenter_ = rotCenter_;
+    // Update current values
+    rotCenter_ = rigidBodyDict_.lookup("centreOfRotation");
+    tensor Q = rigidBodyDict_.lookup("orientation");
+    orientation_ = Q.T();
+
+    // Get velocities
+    vector translation, velocity, omega;
+    translation = rotCenter_ - prevRotCenter_;
+    velocity = rigidBodyDict_.lookup("velocity");
+    omega = vector::zero;
+
+    // Move the actuator line according to the computed values
+    floaterMove(translation, velocity, omega);
 }
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -744,7 +791,7 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
 
 void Foam::fv::actuatorLineSource::floaterInitialise()
 {
-    if(harmonicFloaterActive_)
+    if(harmonicFloaterActive_ || rigidBodyFloaterActive_)
     {
         // Total rotation matrix: 
         // go back to unrotated orientation 
@@ -1073,6 +1120,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
         harmonicFloaterMotion();
     }
 
+    // If rigid body floater motion is active, move the actuator line accordingly
+    if (rigidBodyFloaterActive_)
+    {
+        rigidBodyFloaterMotion();
+    }
+    
     // Zero out force field
     forceField_ *= dimensionedScalar("zero", forceField_.dimensions(), 0.0);
 
@@ -1123,6 +1176,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
         harmonicFloaterMotion();
     }
 
+    // If rigid body floater motion is active, move the actuator line accordingly
+    if (rigidBodyFloaterActive_)
+    {
+        rigidBodyFloaterMotion();
+    }
+
     const volVectorField& U = mesh_.lookupObject<volVectorField>("U");
 
     word fieldName = fieldNames_[fieldI];
@@ -1153,6 +1212,12 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     if (harmonicFloaterActive_)
     {
         harmonicFloaterMotion();
+    }
+
+    // If rigid body floater motion is active, move the actuator line accordingly
+    if (rigidBodyFloaterActive_)
+    {
+        rigidBodyFloaterMotion();
     }
 
     // Zero out force field
