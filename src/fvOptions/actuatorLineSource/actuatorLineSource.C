@@ -105,7 +105,12 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
 
         // Read rigid body floater motion parameters if present
         dictionary rigidBodyFloaterDict = coeffs_.subOrEmptyDict("rigidBodyFloaterMotion");
-        rigidBodyFloaterActive_ = harmonicFloaterDict.lookupOrDefault("active", false);
+        rigidBodyFloaterActive_ = rigidBodyFloaterDict.lookupOrDefault("active", false);
+        if(rigidBodyFloaterActive_)
+        {
+            vector refAngles =  rigidBodyFloaterDict.lookupOrDefault("principalOrientation", vector::zero);
+            refOrientation_ =    rotAngles2Matrix(refAngles);
+        }
 
         // Check whether rigid body and prescribed harmonic are both active
         if(rigidBodyFloaterActive_ && harmonicFloaterActive_)
@@ -605,9 +610,9 @@ void Foam::fv::actuatorLineSource::readRigidBody(const fvMesh& mesh)
                     )
                 );
             
-            rotCenter = rigidBodyDict_.lookup("centreOfRotation");
-            tensor Q = rigidBodyDict_.lookup("orientation");
-            orientation_ = Q.T();
+            rigidBodyDict_.lookup("centreOfRotation") >> rotCenter_;
+            rigidBodyDict_.lookup("orientation") >> rBOrientation_;
+            orientation_ = rBOrientation_.T() & refOrientation_;
             prevOrientation_ = rotAngles2Matrix(vector::zero);
             prevRotCenter_ = rotCenter_;
         }
@@ -626,14 +631,21 @@ void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion()
     prevOrientation_ = orientation_;
     prevRotCenter_ = rotCenter_;
     // Update current values
-    rotCenter_ = rigidBodyDict_.lookup("centreOfRotation");
-    tensor Q = rigidBodyDict_.lookup("orientation");
-    orientation_ = Q.T();
+    rigidBodyDict_.lookup("centreOfRotation") >> rotCenter_;
+
+    // Rigid body orientation Q maps from local to global.
+    // We want to go from global to local, thus use Q.T().
+    rigidBodyDict_.lookup("orientation") >> rBOrientation_;
+
+    // Rigid body orientation Q is given wrt the orientation
+    // aligned with inertia principal axes (refOrientation).
+    // So, first apply refOrientation and then Q.
+    orientation_ = rBOrientation_.T() & refOrientation_;
 
     // Get velocities
     vector translation, velocity, omega;
     translation = rotCenter_ - prevRotCenter_;
-    velocity = rigidBodyDict_.lookup("velocity");
+    rigidBodyDict_.lookup("velocity") >> velocity;
     omega = vector::zero;
 
     // Move the actuator line according to the computed values

@@ -165,6 +165,12 @@ protected:
         //- Floater's orientation at previous time as a zy'x'' rotation Matrix
         tensor prevOrientation_;
 
+        //- Orientation from rigid body library
+        tensor rBOrientation_;
+
+        //- For rigid body motion, orientation aligned with inertia principal axes
+        tensor refOrientation_;
+
     // Protected Member Functions
 
         //- Create actuator line elements
@@ -296,6 +302,9 @@ public:
 
              //- Execute harmonic floating motion for a single time step
             void harmonicFloaterMotion();
+
+            //- Execute rigid body floater motion
+            void rigidBodyFloaterMotion();
 
             //- Rotate floater according to initial orientation
             void floaterInitialise();
