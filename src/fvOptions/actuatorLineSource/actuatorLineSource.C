@@ -99,7 +99,7 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
             rot0_ *=            M_PI / 180; // Transform deg into rad  
             
             orientation_ =      rotAngles2Matrix(rot0_);
-            prevOrientation_ =  rotAngles2Matrix(vector::zero);
+            prevOrientation_ =  tensor::I;
             prevRotCenter_ =    rotCenter_;
         }
 
@@ -108,14 +108,19 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         rigidBodyFloaterActive_ = rigidBodyFloaterDict.lookupOrDefault("active", false);
         if(rigidBodyFloaterActive_)
         {
-            vector refAngles =  rigidBodyFloaterDict.lookupOrDefault("principalOrientation", vector::zero);
-            refOrientation_ =    rotAngles2Matrix(refAngles);
+            refOrientation_ =  rigidBodyFloaterDict.lookupOrDefault("principalOrientation", tensor::I);
+            if(equal(det(refOrientation_), 0.0))
+            {
+                Info << "Principal orientation must have non-zero determinant." << endl;
+                Info << "Rigid body floater motion is disabled." << endl;
+                rigidBodyFloaterActive_ = false;
+            }
         }
 
         // Check whether rigid body and prescribed harmonic are both active
         if(rigidBodyFloaterActive_ && harmonicFloaterActive_)
         {
-            Info<< "Both 'harmonicFloaterMotion' and 'rigidBodyFloaterMotion' are set to active." <<
+            Info<< "Both 'harmonicFloaterMotion' and 'rigidBodyFloaterMotion' are set to active. " <<
             "Since only one type of floater motion is allowed, they will be disabled." << endl;
             rigidBodyFloaterActive_ =   false;
             harmonicFloaterActive_  =   false;
@@ -582,54 +587,53 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
 }
 
 
-void Foam::fv::actuatorLineSource::readRigidBody(const fvMesh& mesh)
+void Foam::fv::actuatorLineSource::readRigidBodyDict(const fvMesh& mesh)
 {
+    // If rigid body dictionary exists
+    if(mesh.time().foundObject<IOdictionary>("sixDoFMotion"))
+    {
+        // Access dictionary
+        const dictionary& motionDict = mesh.time().lookupObject<IOdictionary>("sixDoFMotion");
+        // Save its reference
+        rigidBodyDict_ = motionDict;
+    }
+    else
+    {
+        rigidBodyFloaterActive_ = false;
+        Info << "Rigid body IOdictionary ('sixDoFMotion') could not be accessed." << endl;
+        Info << "Floater motion based on rigid body is thus disabled." << endl;
+    }
+}
+
+
+void Foam::fv::actuatorLineSource::rigidBodyInitialise(const fvMesh& mesh)
+{    
     if(rigidBodyFloaterActive_)
     {
-        bool existsRB = IOobject
-            (
-                "sixDoFRigidBodyMotionState",
-                mesh.time().timeName(),
-                "uniform",
-                mesh
-            ).typeHeaderOk<IOdictionary>(true);
-
-        if(existsRB)
+        readRigidBodyDict(mesh);
+        // If 'sixDoFMotion' IOdictionary has been accessed
+        if(rigidBodyFloaterActive_)
         {
-            rigidBodyDict_ = IOdictionary
-                (
-                    IOobject
-                    (
-                        "sixDoFRigidBodyMotionState",
-                        mesh.time().timeName(),
-                        "uniform",
-                        mesh,
-                        IOobject::READ_IF_PRESENT,
-                        IOobject::NO_WRITE,
-                        false
-                    )
-                );
-            
+            // Access its content
             rigidBodyDict_.lookup("centreOfRotation") >> rotCenter_;
             rigidBodyDict_.lookup("orientation") >> rBOrientation_;
             orientation_ = rBOrientation_.T() & refOrientation_;
-            prevOrientation_ = rotAngles2Matrix(vector::zero);
+            prevOrientation_ = tensor::I;
             prevRotCenter_ = rotCenter_;
-        }
-        else
-        {
-            rigidBodyFloaterActive_ = false;
-            Info << "Rigid body dictionary (sixDoFRigidBodyMotionState) could not be accessed." << endl;
-            Info << "Floater motion based on rigid body is thus disabled." << endl;
-        }
+        }  
     }    
 }
 
-void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion()
+
+void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion(const fvMesh& mesh)
 {
     // Update previous values
     prevOrientation_ = orientation_;
     prevRotCenter_ = rotCenter_;
+
+    // Read the IOdictionary
+    readRigidBodyDict(mesh);
+
     // Update current values
     rigidBodyDict_.lookup("centreOfRotation") >> rotCenter_;
 
@@ -646,7 +650,17 @@ void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion()
     vector translation, velocity, omega;
     translation = rotCenter_ - prevRotCenter_;
     rigidBodyDict_.lookup("velocity") >> velocity;
-    omega = vector::zero;
+    rigidBodyDict_.lookup("omega") >> omega;
+
+    if(debug)
+    {
+        Info << "Rigid body floating motion." << endl;
+        Info << "Rigid body orientation: " << rBOrientation_ << endl;
+        Info << "Overall orientation: " << orientation_ << endl;
+        Info << "Rotation centre: " << rotCenter_ << endl;
+        Info << "Velocity: " << velocity << endl;
+        Info << "Omega: " << omega << endl;
+    }
 
     // Move the actuator line according to the computed values
     floaterMove(translation, velocity, omega);
@@ -687,7 +701,7 @@ Foam::fv::actuatorLineSource::actuatorLineSource
     endEffectsActive_(false)
 {
     read(dict_);
-    readRigidBody(mesh);
+    rigidBodyInitialise(mesh);
     createElements();
     floaterInitialise();
     if (writePerf_)
@@ -1135,7 +1149,7 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to momentum equation
     // If rigid body floater motion is active, move the actuator line accordingly
     if (rigidBodyFloaterActive_)
     {
-        rigidBodyFloaterMotion();
+        rigidBodyFloaterMotion(mesh_);
     }
     
     // Zero out force field
@@ -1191,7 +1205,7 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to turbulence scalars
     // If rigid body floater motion is active, move the actuator line accordingly
     if (rigidBodyFloaterActive_)
     {
-        rigidBodyFloaterMotion();
+        rigidBodyFloaterMotion(mesh_);
     }
 
     const volVectorField& U = mesh_.lookupObject<volVectorField>("U");
@@ -1229,7 +1243,7 @@ void Foam::fv::actuatorLineSource::addSup //- Source term to compressible moment
     // If rigid body floater motion is active, move the actuator line accordingly
     if (rigidBodyFloaterActive_)
     {
-        rigidBodyFloaterMotion();
+        rigidBodyFloaterMotion(mesh_);
     }
 
     // Zero out force field

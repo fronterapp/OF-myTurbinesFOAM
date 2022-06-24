@@ -192,7 +192,10 @@ protected:
         void harmonicPitching();
 
         //- Read rigid body dictionary
-        void readRigidBody(const fvMesh& mesh);
+        void readRigidBodyDict(const fvMesh& mesh);
+
+        //- Initialise rigid body
+        void rigidBodyInitialise(const fvMesh& mesh);
 
 public:
 
@@ -304,7 +307,7 @@ public:
             void harmonicFloaterMotion();
 
             //- Execute rigid body floater motion
-            void rigidBodyFloaterMotion();
+            void rigidBodyFloaterMotion(const fvMesh& mesh);
 
             //- Rotate floater according to initial orientation
             void floaterInitialise();
