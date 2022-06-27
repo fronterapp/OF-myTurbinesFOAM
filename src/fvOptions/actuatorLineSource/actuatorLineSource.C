@@ -573,12 +573,12 @@ void Foam::fv::actuatorLineSource::harmonicFloaterMotion()
             omega[i] = harmonicRotFreq_[i] * harmonicRotAmp_[i]
                                 * cos(harmonicRotFreq_[i] * t);
         }
-        // Rotation matrix: from inertial (I) to floater (F) frame
+        // Rotation matrix: from floater (F) to inertial (I) frame
         orientation_ = rotAngles2Matrix(rotation);
         
         // omega is given in floater (F) frame and thus
         // has to be transformed into inertial (I)
-        omega = orientation_.T() & omega;
+        omega = orientation_ & omega;
 
         // Move the actuator line according to the computed values
         floaterMove(translation, velocity, omega);
@@ -617,7 +617,7 @@ void Foam::fv::actuatorLineSource::rigidBodyInitialise(const fvMesh& mesh)
             // Access its content
             rigidBodyDict_.lookup("centreOfRotation") >> rotCenter_;
             rigidBodyDict_.lookup("orientation") >> rBOrientation_;
-            orientation_ = rBOrientation_.T() & refOrientation_;
+            orientation_ = rBOrientation_ & refOrientation_;
             prevOrientation_ = tensor::I;
             prevRotCenter_ = rotCenter_;
         }  
@@ -637,20 +637,24 @@ void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion(const fvMesh& mesh)
     // Update current values
     rigidBodyDict_.lookup("centreOfRotation") >> rotCenter_;
 
-    // Rigid body orientation Q maps from local to global.
-    // We want to go from global to local, thus use Q.T().
+    // Rigid body orientation 'Q' maps from local to global.
+    // This is the same as going from floater (F) to inertial
+    // (I) frames. Thus, no need to transpose it. 
     rigidBodyDict_.lookup("orientation") >> rBOrientation_;
 
-    // Rigid body orientation Q is given wrt the orientation
+    // Rigid body orientation 'Q' is given wrt the orientation
     // aligned with inertia principal axes (refOrientation).
     // So, first apply refOrientation and then Q.
-    orientation_ = rBOrientation_.T() & refOrientation_;
+    orientation_ = rBOrientation_ & refOrientation_;
 
     // Get velocities
     vector translation, velocity, omega;
     translation = rotCenter_ - prevRotCenter_;
     rigidBodyDict_.lookup("velocity") >> velocity;
     rigidBodyDict_.lookup("omega") >> omega;
+
+    // Move the actuator line according to the computed values
+    floaterMove(translation, velocity, omega);
 
     if(debug)
     {
@@ -662,8 +666,7 @@ void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion(const fvMesh& mesh)
         Info << "Omega: " << omega << endl;
     }
 
-    // Move the actuator line according to the computed values
-    floaterMove(translation, velocity, omega);
+
 }
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //

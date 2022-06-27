@@ -159,7 +159,8 @@ protected:
         //- Floater's orientation at t=0
         vector rot0_;
 
-        //- Floater's orientation as a zy'x'' rotation Matrix
+        //- Floater's orientation as a zy'x'' rotation matrix
+        // from floater (F) to inertial (I) frame
         tensor orientation_;
 
         //- Floater's orientation at previous time as a zy'x'' rotation Matrix
