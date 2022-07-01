@@ -690,8 +690,13 @@ Foam::scalar Foam::fv::actuatorLineElement::normalRefForce()
 Foam::scalar Foam::fv::actuatorLineElement::inflowRefAngle()
 {
     // Calculate inflow velocity angle in degrees (AFTAL Phi)
-    scalar cosAngle = (-relativeVelocity_ & chordRefDirection_)
-        / (mag(relativeVelocity_) * mag(chordRefDirection_));
+    scalar den = mag(relativeVelocity_) * mag(chordRefDirection_);
+    if (den < SMALL)
+    {
+        den = SMALL;
+    }
+    
+    scalar cosAngle = (-relativeVelocity_ & chordRefDirection_) / den;
 
     // Since cosAngle is computed from a float dot product,
     // there is a change the result is greater than 1 or
