@@ -161,6 +161,18 @@ protected:
         //- Switch for harmonic floater motion
         bool harmonicFloaterActive_;
 
+        //- Rigid body floating motion dictionary
+        dictionary rigidBodyFloaterDict_;
+
+        //- Switch for rigid body floater motion
+        bool rigidBodyFloaterActive_;
+
+        //- False if the AL is defined wrt to orientation_ = I, and thus must be 
+        // rotated to match rigid body orientation before the first timestep.
+        // True would mean that the user has defined the AL aligned with
+        // the rigid body initial orientation.  
+        bool rigidBodyAligned_;
+
         //- Floater's current orientation as a zy'x'' rotation Matrix
         tensor orientation_;
 
@@ -199,7 +211,7 @@ protected:
         //- Update turbine orientation according to floater motion
         virtual void floaterUpdate();
 
-        //- Initialise axis orientation according to initial floater orientation
+        //- Initialise axis_ and origin_ according to initial floater orientation
         virtual void floaterInitialise();
         
 public:

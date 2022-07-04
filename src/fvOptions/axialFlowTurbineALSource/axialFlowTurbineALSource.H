@@ -138,7 +138,7 @@ protected:
         //- Update turbine orientation according to floater motion
         virtual void floaterUpdate();
 
-        //- Initialise axis orientation according to initial floater orientation
+        //- Initialise axis_ and origin_ according to initial floater orientation
         virtual void floaterInitialise();
 
 public:

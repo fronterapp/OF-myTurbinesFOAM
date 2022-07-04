@@ -332,6 +332,11 @@ bool Foam::fv::turbineALSource::read(const dictionary& dict)
         harmonicFloaterDict_ = coeffs_.subOrEmptyDict("harmonicFloaterMotion");
         harmonicFloaterActive_ = harmonicFloaterDict_.lookupOrDefault("active", false);
 
+        // Read rigid body motion parameters if present
+        rigidBodyFloaterDict_ = coeffs_.subOrEmptyDict("rigidBodyFloaterMotion");
+        rigidBodyFloaterActive_ = rigidBodyFloaterDict_.lookupOrDefault("active", false);
+        rigidBodyAligned_ = rigidBodyFloaterDict_.lookupOrDefault("isAligned", false);
+
         // Get blade information
         bladesDict_ = coeffs_.subDict("blades");
         nBlades_ = bladesDict_.keys().size();

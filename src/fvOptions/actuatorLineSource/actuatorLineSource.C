@@ -106,6 +106,7 @@ bool Foam::fv::actuatorLineSource::read(const dictionary& dict)
         // Read rigid body floater motion parameters if present
         dictionary rigidBodyFloaterDict = coeffs_.subOrEmptyDict("rigidBodyFloaterMotion");
         rigidBodyFloaterActive_ = rigidBodyFloaterDict.lookupOrDefault("active", false);
+        rigidBodyAligned_ = rigidBodyFloaterDict.lookupOrDefault("isAligned", false);
         if(rigidBodyFloaterActive_)
         {
             refOrientation_ =  rigidBodyFloaterDict.lookupOrDefault("principalOrientation", tensor::I);
@@ -706,7 +707,7 @@ Foam::fv::actuatorLineSource::actuatorLineSource
     read(dict_);
     rigidBodyInitialise(mesh);
     createElements();
-    floaterInitialise();
+    floaterAlign();
     if (writePerf_)
     {
         createOutputFile();
@@ -818,9 +819,9 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
     }
 }
 
-void Foam::fv::actuatorLineSource::floaterInitialise()
+void Foam::fv::actuatorLineSource::floaterAlign()
 {
-    if(harmonicFloaterActive_ || rigidBodyFloaterActive_)
+    if(harmonicFloaterActive_ || (rigidBodyFloaterActive_ && !rigidBodyAligned_))
     {
         // Total rotation matrix: 
         // go back to unrotated orientation 

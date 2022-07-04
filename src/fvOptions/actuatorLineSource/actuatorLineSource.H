@@ -172,6 +172,12 @@ protected:
         //- For rigid body motion, orientation aligned with inertia principal axes
         tensor refOrientation_;
 
+        //- False if the AL is defined wrt to orientation_ = I, and thus must be 
+        // rotated to match rigid body orientation before the first timestep.
+        // True would mean that the user has defined the AL aligned with
+        // the rigid body initial orientation.  
+        bool rigidBodyAligned_;
+
     // Protected Member Functions
 
         //- Create actuator line elements
@@ -311,7 +317,7 @@ public:
             void rigidBodyFloaterMotion(const fvMesh& mesh);
 
             //- Rotate floater according to initial orientation
-            void floaterInitialise();
+            void floaterAlign();
             
         // Evaluation
 
