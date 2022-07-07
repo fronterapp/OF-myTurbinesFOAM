@@ -25,6 +25,7 @@ License
 
 #include "actuatorLineElement.H"
 #include "addToRunTimeSelectionTable.H"
+#include "meshSearch.H"
 #include "geometricOneField.H"
 #include "fvMatrices.H"
 #include "syncTools.H"
@@ -186,7 +187,9 @@ Foam::label Foam::fv::actuatorLineElement::findCell
                     << " inside bounding box:" << endl
                     << meshBoundBox_ << endl;
             }
-            return mesh_.findCell(location);
+            //return mesh_.findCell(location);
+            meshSearch ms(mesh_);
+            return ms.findNearestCell(location, 0, true);
         }
         else
         {
@@ -391,7 +394,18 @@ void Foam::fv::actuatorLineElement::calculateInflowVelocity
     // If the flow only is sampled in the center
     if (velocitySampleRadius_ <= 0.0)
     {
+        if(debug)
+        {
+            Pout << "Velocity sampled sampled at point " << inflowVelocityPoint << endl;
+        }
+
         label inflowCellI = findCell(inflowVelocityPoint);
+
+        if(debug)
+        {
+            Pout << "Inflow Cell ID: " << inflowCellI << endl;
+        }
+        
         if (inflowCellI >= 0)
         {
             inflowVelocity_ = UInterp.interpolate
@@ -407,6 +421,11 @@ void Foam::fv::actuatorLineElement::calculateInflowVelocity
     // If the flow is sampled by using a circle around position_
     else
     {
+        if(debug)
+        {
+            Info << "Velocity sampled using a circle around position" << endl;
+        }
+
         // Circle radius should be normalized with epsilon
         scalar sampleRadius = calcProjectionEpsilon()*velocitySampleRadius_;
 
@@ -883,7 +902,7 @@ void Foam::fv::actuatorLineElement::rotate
 
     if (debug)
     {
-        Info<< "Rotating actuatorLineElement: " << name_ << endl;
+        Info<< "Rotating (turbine) actuatorLineElement: " << name_ << endl;
         Info<< "Rotation point: " << rotationPoint << endl;
         Info<< "Rotation axis: " << axis << endl;
         Info<< "Rotation angle (radians): " << radians << endl;
@@ -940,7 +959,7 @@ void Foam::fv::actuatorLineElement::rotate
 {
     if (debug)
     {
-        Info<< "Rotating actuatorLineElement: " << name_ << endl;
+        Info<< "Rotating (floater) actuatorLineElement: " << name_ << endl;
         Info<< "Rotation point: " << rotationPoint << endl;
         Info<< "Rotation matrix:" << endl << RM << endl;
         Info<< "Initial position: " << position_ << endl;
