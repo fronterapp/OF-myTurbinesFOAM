@@ -245,7 +245,6 @@ void Foam::fv::axialFlowTurbineALSource::createBlades()
         bladeSubDict.lookupOrAddDefault("writeForceField", false);
 
         // Add multiphase data
-        multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
         bladeSubDict.add("multiPhase", multiPhase_);
         if(multiPhase_)
         {
@@ -354,7 +353,6 @@ void Foam::fv::axialFlowTurbineALSource::createHub()
     hubSubDict.lookupOrAddDefault("writeForceField", false);
 
     // Add multiphase data
-    multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
     hubSubDict.add("multiPhase", multiPhase_);
     if(multiPhase_)
     {
@@ -458,7 +456,6 @@ void Foam::fv::axialFlowTurbineALSource::createTower()
     towerSubDict.lookupOrAddDefault("writeForceField", false);
 
     // Add multiphase data
-    multiPhase_ = coeffs_.lookupOrDefault("multiPhase", false);
     towerSubDict.add("multiPhase", multiPhase_);
     if(multiPhase_)
     {
