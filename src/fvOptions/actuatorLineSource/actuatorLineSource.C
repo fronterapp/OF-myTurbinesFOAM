@@ -635,7 +635,7 @@ void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion(const fvMesh& mesh)
     // Read the IOdictionary
     readRigidBodyDict(mesh);
 
-    // Update current values
+    // Update current rotation center
     rigidBodyDict_.lookup("centreOfRotation") >> rotCenter_;
 
     // Rigid body orientation 'Q' maps from local to global.
@@ -666,8 +666,6 @@ void Foam::fv::actuatorLineSource::rigidBodyFloaterMotion(const fvMesh& mesh)
         Info << "Velocity: " << velocity << endl;
         Info << "Omega: " << omega << endl;
     }
-
-
 }
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -819,42 +817,8 @@ void Foam::fv::actuatorLineSource::setOmega(scalar omega)
     }
 }
 
-void Foam::fv::actuatorLineSource::floaterAlign()
-{
-    if(harmonicFloaterActive_ || (rigidBodyFloaterActive_ && !rigidBodyAligned_))
-    {
-        // Total rotation matrix: 
-        // go back to unrotated orientation 
-        // and rotate again with rotMatrix
-        // R = Rn * R(n-1)^T
-        tensor totalRotMatrix = orientation_ & prevOrientation_.T();
 
-        // Execute rotation routine only if rotation
-        // angle is not zero. From the formula:
-        // tr(R) = 1 + 2cos(angle)
-        // angle==0 if tr(R) ==3
-        if(!equal(tr(totalRotMatrix), scalar(3.0)))
-        {
-            // Perform rotation wrt the rotation center
-            // from the previous timestep
-            // R * ( x_(n-1) - c_(n-1) )
-            rotate(rotCenter_, totalRotMatrix);
-            if(debug)
-            {
-                Info<< "Accounting for floating motion... " << endl;
-                Info<< "Actuator line rotation matrix: " << orientation_ << endl;
-                Info<< "Rotation center: " << rotCenter_ << endl;
-            }
-        }
-    }
-}
-
-void Foam::fv::actuatorLineSource::floaterMove
-(
-    const vector &translation,
-    const vector &velocity,
-    const vector &omega
-)
+void Foam::fv::actuatorLineSource::floaterRotate()
 {
     // Total rotation matrix: 
     // go back to unrotated orientation 
@@ -878,7 +842,19 @@ void Foam::fv::actuatorLineSource::floaterMove
             Info<< "Actuator line rotation matrix: " << orientation_ << endl;
             Info<< "Rotation center: " << rotCenter_ << endl;
         }
-    }
+    }  
+}
+
+
+void Foam::fv::actuatorLineSource::floaterMove
+(
+    const vector &translation,
+    const vector &velocity,
+    const vector &omega
+)
+{
+    // Rotate the floater
+    floaterRotate();
 
     // Now translate 
     translate(translation);
@@ -903,7 +879,16 @@ void Foam::fv::actuatorLineSource::floaterMove
         vector omegaAxis = omega / omegaNorm;
         addFloaterOmega(rotCenter_, omegaAxis, omegaNorm);
     }
-    
+}
+
+
+void Foam::fv::actuatorLineSource::floaterAlign()
+{
+    if(harmonicFloaterActive_ || (rigidBodyFloaterActive_ && !rigidBodyAligned_))
+    {
+        // Rotate the floater
+        floaterRotate();
+    }
 }
 
 

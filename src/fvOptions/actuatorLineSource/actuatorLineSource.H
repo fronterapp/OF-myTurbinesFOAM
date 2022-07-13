@@ -316,6 +316,9 @@ public:
             //- Execute rigid body floater motion
             void rigidBodyFloaterMotion(const fvMesh& mesh);
 
+            //- Rotate floater wrt the rotation center with the orientation matrix
+            void floaterRotate();
+
             //- Rotate floater according to initial orientation
             void floaterAlign();
             
